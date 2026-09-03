@@ -4,6 +4,7 @@
     <strong>Astronomical Vedic Choghadiya & Auspicious Timing Engine for Apple Platforms</strong>
   </p>
   <p align="center">
+    <a href="https://github.com/bhargavkukadiya/ChoghadiyaKit/releases"><img src="https://img.shields.io/github/v/release/bhargavkukadiya/ChoghadiyaKit?style=flat-square&color=007AFF" alt="Latest Release"></a>
     <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9%20%7C%206.0-F05138.svg?style=flat-square&logo=swift" alt="Swift 5.9 | 6.0"></a>
     <a href="https://developer.apple.com"><img src="https://img.shields.io/badge/Platforms-iOS%2015+%20%7C%20macOS%2012+%20%7C%20watchOS%208+%20%7C%20tvOS%2015+-007AFF.svg?style=flat-square&logo=apple" alt="Platforms"></a>
     <a href="https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race/"><img src="https://img.shields.io/badge/Swift%206-Strict%20Concurrency%20Safe-34C759.svg?style=flat-square" alt="Swift 6 Strict Concurrency"></a>
@@ -31,8 +32,9 @@ Whether you are developing an iOS companion app, macOS menu bar utility, watchOS
 - [Quick Start](#quick-start)
   - [1. Schedule by Location Name](#1-schedule-by-location-name)
   - [2. Schedule by Coordinates (Widgets & CoreLocation)](#2-schedule-by-coordinates-widgets--corelocation)
-  - [3. Querying Active and Upcoming Slots](#3-querying-active-and-upcoming-slots)
-  - [4. Complete SwiftUI Integration](#4-complete-swiftui-integration)
+  - [3. Schedule for a Specific Calendar Date](#3-schedule-for-a-specific-calendar-date)
+  - [4. Querying Active and Upcoming Slots](#4-querying-active-and-upcoming-slots)
+  - [5. Complete SwiftUI Integration](#5-complete-swiftui-integration)
 - [Architecture & Testing](#architecture--testing)
   - [Dependency Injection & Mocking](#dependency-injection--mocking)
   - [Verifying Strict Concurrency](#verifying-strict-concurrency)
@@ -205,7 +207,39 @@ let schedule = try await manager.getSchedule(
 
 ---
 
-### 3. Querying Active and Upcoming Slots
+### 3. Schedule for a Specific Calendar Date
+
+Compute historical or future Choghadiya schedules with dynamic solar sunrise and sunset adjustments:
+
+```swift
+import Foundation
+import ChoghadiyaKit
+
+let manager = ChoghadiyaManager()
+
+// Any past, present, or future Date (e.g., Diwali — October 24, 2026):
+var components = DateComponents()
+components.year = 2026
+components.month = 10
+components.day = 24
+let targetDate = Calendar.current.date(from: components)!
+
+// By location name:
+let schedule = try await manager.getSchedule(
+    for: "Ahmedabad, India",
+    date: targetDate
+)
+
+// Or by coordinates:
+let scheduleWithCoords = try await manager.getSchedule(
+    coordinate: location.coordinate,
+    date: targetDate
+)
+```
+
+---
+
+### 4. Querying Active and Upcoming Slots
 
 `ChoghadiyaSchedule` provides high-level convenience query APIs:
 
@@ -230,7 +264,7 @@ print("Currently in daytime Choghadiya: \(isDay)")
 
 ---
 
-### 4. Complete SwiftUI Integration
+### 5. Complete SwiftUI Integration
 
 Because `ChoghadiyaSlot` conforms to `Identifiable`, you can pass slots directly to SwiftUI lists and grids without manual `id:` keypaths:
 
