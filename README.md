@@ -126,6 +126,21 @@ let package = Package(
 
 ## Quick Start
 
+### 🚀 Try the Live Terminal Demo
+
+You can immediately calculate the live Choghadiya schedule for any city directly in your terminal:
+
+```bash
+# Calculate today's schedule for Ahmedabad, India (default):
+swift run ChoghadiyaDemo
+
+# Or specify any city worldwide:
+swift run ChoghadiyaDemo "London, UK"
+swift run ChoghadiyaDemo "New York, USA"
+```
+
+---
+
 ### 1. Schedule by Location Name
 
 ```swift
