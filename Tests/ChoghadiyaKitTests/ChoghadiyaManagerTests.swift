@@ -5,8 +5,7 @@
 //  Created by Bhargav Kukadiya.
 //
 
-import Testing
-import Foundation
+import XCTest
 @testable import ChoghadiyaKit
 
 /// Thread-safe mock implementation of SunTimesFetching for deterministic testing.
@@ -32,8 +31,7 @@ private final class MockSunTimesFetcher: SunTimesFetching, @unchecked Sendable {
     }
 }
 
-@Suite("Choghadiya Manager Facade Tests")
-struct ChoghadiyaManagerTests {
+final class ChoghadiyaManagerTests: XCTestCase {
 
     private let timeZone = TimeZone(identifier: "Asia/Kolkata")!
 
@@ -45,7 +43,6 @@ struct ChoghadiyaManagerTests {
         return SunTimes(sunrise: sunrise, sunset: sunset, nextSunrise: nextSunrise, timeZone: timeZone)
     }
 
-    @Test("getSchedule for Location String Uses Injected Fetcher")
     func testGetScheduleForLocation() async throws {
         let mockFetcher = MockSunTimesFetcher()
         mockFetcher.stubbedSunTimes = makeStubSunTimes()
@@ -53,12 +50,11 @@ struct ChoghadiyaManagerTests {
         let manager = ChoghadiyaManager(fetcher: mockFetcher)
         let schedule = try await manager.getSchedule(for: "Ahmedabad, India")
 
-        #expect(mockFetcher.capturedLocation == "Ahmedabad, India")
-        #expect(schedule.daySlots.count == 8)
-        #expect(schedule.nightSlots.count == 8)
+        XCTAssertEqual(mockFetcher.capturedLocation, "Ahmedabad, India")
+        XCTAssertEqual(schedule.daySlots.count, 8)
+        XCTAssertEqual(schedule.nightSlots.count, 8)
     }
 
-    @Test("getSchedule for Coordinates Uses Injected Fetcher (DIP Compliance)")
     func testGetScheduleForCoordinates() async throws {
         let mockFetcher = MockSunTimesFetcher()
         mockFetcher.stubbedSunTimes = makeStubSunTimes()
@@ -70,21 +66,25 @@ struct ChoghadiyaManagerTests {
             timeZone: timeZone
         )
 
-        #expect(mockFetcher.capturedCoordinates?.latitude == 23.0225)
-        #expect(mockFetcher.capturedCoordinates?.longitude == 72.5714)
-        #expect(schedule.daySlots.count == 8)
-        #expect(schedule.nightSlots.count == 8)
+        XCTAssertEqual(mockFetcher.capturedCoordinates?.latitude, 23.0225)
+        XCTAssertEqual(mockFetcher.capturedCoordinates?.longitude, 72.5714)
+        XCTAssertEqual(schedule.daySlots.count, 8)
+        XCTAssertEqual(schedule.nightSlots.count, 8)
     }
 
-    @Test("Manager Propagates Errors from Fetcher")
     func testErrorPropagation() async {
         let mockFetcher = MockSunTimesFetcher()
         mockFetcher.stubbedError = ChoghadiyaError.locationNotFound
 
         let manager = ChoghadiyaManager(fetcher: mockFetcher)
 
-        await #expect(throws: ChoghadiyaError.locationNotFound) {
-            try await manager.getSchedule(for: "NonExistentCityXYZ")
+        do {
+            _ = try await manager.getSchedule(for: "NonExistentCityXYZ")
+            XCTFail("Expected locationNotFound error to be thrown")
+        } catch let error as ChoghadiyaError {
+            XCTAssertEqual(error, .locationNotFound)
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
         }
     }
 }

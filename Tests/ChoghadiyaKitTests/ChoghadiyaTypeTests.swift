@@ -5,61 +5,55 @@
 //  Created by Bhargav Kukadiya.
 //
 
-import Testing
-import Foundation
+import XCTest
 @testable import ChoghadiyaKit
 
-@Suite("Choghadiya Type and Auspiciousness Tests")
-struct ChoghadiyaTypeTests {
+final class ChoghadiyaTypeTests: XCTestCase {
 
-    @Test("Auspiciousness Categorization")
     func testAuspiciousness() {
-        #expect(ChoghadiyaType.amrit.auspiciousness == .highlyAuspicious)
-        #expect(ChoghadiyaType.amrit.isAuspicious == true)
+        XCTAssertEqual(ChoghadiyaType.amrit.auspiciousness, .highlyAuspicious)
+        XCTAssertTrue(ChoghadiyaType.amrit.isAuspicious)
 
-        #expect(ChoghadiyaType.shubh.auspiciousness == .auspicious)
-        #expect(ChoghadiyaType.shubh.isAuspicious == true)
+        XCTAssertEqual(ChoghadiyaType.shubh.auspiciousness, .auspicious)
+        XCTAssertTrue(ChoghadiyaType.shubh.isAuspicious)
 
-        #expect(ChoghadiyaType.labh.auspiciousness == .auspicious)
-        #expect(ChoghadiyaType.labh.isAuspicious == true)
+        XCTAssertEqual(ChoghadiyaType.labh.auspiciousness, .auspicious)
+        XCTAssertTrue(ChoghadiyaType.labh.isAuspicious)
 
-        #expect(ChoghadiyaType.chal.auspiciousness == .neutral)
-        #expect(ChoghadiyaType.chal.isAuspicious == false)
+        XCTAssertEqual(ChoghadiyaType.chal.auspiciousness, .neutral)
+        XCTAssertFalse(ChoghadiyaType.chal.isAuspicious)
 
-        #expect(ChoghadiyaType.udveg.auspiciousness == .inauspicious)
-        #expect(ChoghadiyaType.udveg.isAuspicious == false)
+        XCTAssertEqual(ChoghadiyaType.udveg.auspiciousness, .inauspicious)
+        XCTAssertFalse(ChoghadiyaType.udveg.isAuspicious)
 
-        #expect(ChoghadiyaType.kaal.auspiciousness == .inauspicious)
-        #expect(ChoghadiyaType.kaal.isAuspicious == false)
+        XCTAssertEqual(ChoghadiyaType.kaal.auspiciousness, .inauspicious)
+        XCTAssertFalse(ChoghadiyaType.kaal.isAuspicious)
 
-        #expect(ChoghadiyaType.rog.auspiciousness == .avoid)
-        #expect(ChoghadiyaType.rog.isAuspicious == false)
+        XCTAssertEqual(ChoghadiyaType.rog.auspiciousness, .avoid)
+        XCTAssertFalse(ChoghadiyaType.rog.isAuspicious)
     }
 
-    @Test("Ruling Planets")
     func testRulingPlanets() {
-        #expect(ChoghadiyaType.udveg.rulingPlanet.contains("Sun"))
-        #expect(ChoghadiyaType.chal.rulingPlanet.contains("Venus"))
-        #expect(ChoghadiyaType.labh.rulingPlanet.contains("Mercury"))
-        #expect(ChoghadiyaType.amrit.rulingPlanet.contains("Moon"))
-        #expect(ChoghadiyaType.kaal.rulingPlanet.contains("Saturn"))
-        #expect(ChoghadiyaType.shubh.rulingPlanet.contains("Jupiter"))
-        #expect(ChoghadiyaType.rog.rulingPlanet.contains("Mars"))
+        XCTAssertTrue(ChoghadiyaType.udveg.rulingPlanet.contains("Sun"))
+        XCTAssertTrue(ChoghadiyaType.chal.rulingPlanet.contains("Venus"))
+        XCTAssertTrue(ChoghadiyaType.labh.rulingPlanet.contains("Mercury"))
+        XCTAssertTrue(ChoghadiyaType.amrit.rulingPlanet.contains("Moon"))
+        XCTAssertTrue(ChoghadiyaType.kaal.rulingPlanet.contains("Saturn"))
+        XCTAssertTrue(ChoghadiyaType.shubh.rulingPlanet.contains("Jupiter"))
+        XCTAssertTrue(ChoghadiyaType.rog.rulingPlanet.contains("Mars"))
     }
 
-    @Test("Legacy Label Backward Compatibility")
     func testLabels() {
-        #expect(ChoghadiyaType.udveg.label == "Anxiety")
-        #expect(ChoghadiyaType.chal.label == "Neutral")
-        #expect(ChoghadiyaType.labh.label == "Beneficial")
-        #expect(ChoghadiyaType.amrit.label == "Highly Auspicious")
-        #expect(ChoghadiyaType.kaal.label == "Inauspicious")
-        #expect(ChoghadiyaType.shubh.label == "Auspicious")
-        #expect(ChoghadiyaType.rog.label == "Avoid")
+        XCTAssertEqual(ChoghadiyaType.udveg.label, "Anxiety")
+        XCTAssertEqual(ChoghadiyaType.chal.label, "Neutral")
+        XCTAssertEqual(ChoghadiyaType.labh.label, "Beneficial")
+        XCTAssertEqual(ChoghadiyaType.amrit.label, "Highly Auspicious")
+        XCTAssertEqual(ChoghadiyaType.kaal.label, "Inauspicious")
+        XCTAssertEqual(ChoghadiyaType.shubh.label, "Auspicious")
+        XCTAssertEqual(ChoghadiyaType.rog.label, "Avoid")
     }
 
-    @Test("CaseIterable Completeness")
     func testCases() {
-        #expect(ChoghadiyaType.allCases.count == 7)
+        XCTAssertEqual(ChoghadiyaType.allCases.count, 7)
     }
 }
