@@ -141,6 +141,13 @@ swift run ChoghadiyaDemo "New York, USA"
 # Query directly by coordinates (lat, lon, and optional timezone):
 swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata
 swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
+
+# Query specific dates (past, present, or future):
+swift run ChoghadiyaDemo "Ahmedabad, India" --date 2026-10-24
+swift run ChoghadiyaDemo 21.1702 72.8311 --date 2026-09-04
+
+# View full CLI help and available options:
+swift run ChoghadiyaDemo --help
 ```
 
 ---

@@ -28,7 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ChoghadiyaManager`: High-level facade with full Dependency Inversion Principle (DIP) compliance.
   - Native `CLLocationCoordinate2D` support for seamless CoreLocation and WidgetKit integration.
 - **Runnable CLI Demo (`ChoghadiyaDemo`):**
-  - Interactive terminal executable target to test live astronomical calculations for any city worldwide.
+  - Interactive terminal executable target to test live astronomical calculations for any city or coordinates worldwide (`swift run ChoghadiyaDemo`).
+  - Supports `--date YYYY-MM-DD` for querying any historical or future calendar date.
+  - Built-in `--help` / `-h` manual and interactive argument parser.
 - **Concurrency & Memory Safety:**
   - Complete Swift 6 strict concurrency readiness (`Sendable` throughout).
   - Zero data races under `-strict-concurrency=complete`.

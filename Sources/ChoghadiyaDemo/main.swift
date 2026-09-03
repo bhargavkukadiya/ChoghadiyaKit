@@ -11,12 +11,18 @@ import ChoghadiyaKit
 enum InputMode {
     case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date)
     case address(String, date: Date)
+    case help
 }
 
 @main
 struct ChoghadiyaDemo {
     static func main() async {
         let input = parseArguments()
+
+        if case .help = input {
+            printHelp()
+            return
+        }
 
         print("=======================================================")
         print("   🕉️  Vedic Choghadiya Schedule Demo")
@@ -38,6 +44,9 @@ struct ChoghadiyaDemo {
                 print("📍 Location:    \(address)")
                 print("⏳ Geocoding address and calculating...\n")
                 schedule = try await manager.getSchedule(for: address, date: date)
+
+            case .help:
+                return
             }
 
             let timeZone = schedule.timeZone
@@ -92,11 +101,7 @@ struct ChoghadiyaDemo {
             }
 
             print("\n=======================================================")
-            print("💡 Usage examples:")
-            print("   swift run ChoghadiyaDemo \"London, UK\"")
-            print("   swift run ChoghadiyaDemo \"Ahmedabad, India\" --date 2026-10-24")
-            print("   swift run ChoghadiyaDemo 23.0225 72.5714 --date 2026-12-25")
-            print("   swift run ChoghadiyaDemo --lat 23.0225 --lon 72.5714 --tz Asia/Kolkata")
+            print("💡 For help & options run: swift run ChoghadiyaDemo --help")
             print("=======================================================")
 
         } catch {
@@ -106,6 +111,10 @@ struct ChoghadiyaDemo {
 
     private static func parseArguments() -> InputMode {
         var args = Array(CommandLine.arguments.dropFirst())
+
+        if args.contains("-h") || args.contains("--help") || args.contains("help") {
+            return .help
+        }
 
         guard !args.isEmpty else {
             return .address("Ahmedabad, India", date: Date())
@@ -160,6 +169,38 @@ struct ChoghadiyaDemo {
 
         // Default: treat as location string
         return .address(args.joined(separator: " "), date: targetDate)
+    }
+
+    private static func printHelp() {
+        print("""
+        OVERVIEW: Astronomical Vedic Choghadiya schedule calculator.
+
+        USAGE:
+          swift run ChoghadiyaDemo [<location>] [--date <YYYY-MM-DD>]
+          swift run ChoghadiyaDemo <latitude> <longitude> [<timezone>] [--date <YYYY-MM-DD>]
+          swift run ChoghadiyaDemo --lat <latitude> --lon <longitude> [--tz <timezone>] [--date <YYYY-MM-DD>]
+
+        ARGUMENTS:
+          <location>           City or location name (default: "Ahmedabad, India")
+          <latitude>           Geographic latitude decimal (e.g. 21.1702)
+          <longitude>          Geographic longitude decimal (e.g. 72.8311)
+          <timezone>           Optional IANA time zone identifier (e.g. "Asia/Kolkata")
+
+        OPTIONS:
+          --date <YYYY-MM-DD>  Compute schedule for a specific date (default: today)
+          --lat <latitude>     Geographic latitude decimal
+          --lon <longitude>    Geographic longitude decimal
+          --tz <timezone>      Target IANA time zone (default: system time zone)
+          -h, --help           Show this help information
+
+        EXAMPLES:
+          swift run ChoghadiyaDemo
+          swift run ChoghadiyaDemo "London, UK"
+          swift run ChoghadiyaDemo "Ahmedabad, India" --date 2026-10-24
+          swift run ChoghadiyaDemo 21.1702 72.8311
+          swift run ChoghadiyaDemo 21.1702 72.8311 Asia/Kolkata --date 2026-09-04
+          swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
+        """)
     }
 
     private static func indicator(for type: ChoghadiyaType) -> String {
