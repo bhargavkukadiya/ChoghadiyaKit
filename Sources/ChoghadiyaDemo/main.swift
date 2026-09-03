@@ -9,8 +9,8 @@ import Foundation
 import ChoghadiyaKit
 
 enum InputMode {
-    case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone)
-    case address(String)
+    case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date)
+    case address(String, date: Date)
 }
 
 @main
@@ -28,16 +28,16 @@ struct ChoghadiyaDemo {
             let schedule: ChoghadiyaSchedule
 
             switch input {
-            case .coordinates(let lat, let lon, let tz):
+            case .coordinates(let lat, let lon, let tz, let date):
                 print("📍 Coordinates: \(lat), \(lon)")
                 print("🌐 Time Zone:   \(tz.identifier)")
                 print("⏳ Computing directly from coordinates (no geocoding)...\n")
-                schedule = try await manager.getSchedule(latitude: lat, longitude: lon, timeZone: tz)
+                schedule = try await manager.getSchedule(latitude: lat, longitude: lon, timeZone: tz, date: date)
 
-            case .address(let address):
+            case .address(let address, let date):
                 print("📍 Location:    \(address)")
                 print("⏳ Geocoding address and calculating...\n")
-                schedule = try await manager.getSchedule(for: address)
+                schedule = try await manager.getSchedule(for: address, date: date)
             }
 
             let timeZone = schedule.timeZone
@@ -94,9 +94,9 @@ struct ChoghadiyaDemo {
             print("\n=======================================================")
             print("💡 Usage examples:")
             print("   swift run ChoghadiyaDemo \"London, UK\"")
-            print("   swift run ChoghadiyaDemo 23.0225 72.5714")
-            print("   swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata")
-            print("   swift run ChoghadiyaDemo --lat 23.0225 --lon 72.5714")
+            print("   swift run ChoghadiyaDemo \"Ahmedabad, India\" --date 2026-10-24")
+            print("   swift run ChoghadiyaDemo 23.0225 72.5714 --date 2026-12-25")
+            print("   swift run ChoghadiyaDemo --lat 23.0225 --lon 72.5714 --tz Asia/Kolkata")
             print("=======================================================")
 
         } catch {
@@ -105,10 +105,28 @@ struct ChoghadiyaDemo {
     }
 
     private static func parseArguments() -> InputMode {
-        let args = Array(CommandLine.arguments.dropFirst())
+        var args = Array(CommandLine.arguments.dropFirst())
 
         guard !args.isEmpty else {
-            return .address("Ahmedabad, India")
+            return .address("Ahmedabad, India", date: Date())
+        }
+
+        // Extract optional --date YYYY-MM-DD
+        var targetDate = Date()
+        if let dateIdx = args.firstIndex(of: "--date"), dateIdx + 1 < args.count {
+            let dateStr = args[dateIdx + 1]
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            df.locale = Locale(identifier: "en_US_POSIX")
+            if let parsed = df.date(from: dateStr) {
+                targetDate = parsed
+            }
+            args.remove(at: dateIdx + 1)
+            args.remove(at: dateIdx)
+        }
+
+        guard !args.isEmpty else {
+            return .address("Ahmedabad, India", date: targetDate)
         }
 
         // Check for --lat and --lon flags
@@ -123,25 +141,25 @@ struct ChoghadiyaDemo {
             } else {
                 tz = .current
             }
-            return .coordinates(latitude: lat, longitude: lon, timeZone: tz)
+            return .coordinates(latitude: lat, longitude: lon, timeZone: tz, date: targetDate)
         }
 
         // Check for comma-separated coordinates: e.g. "23.0225,72.5714"
         if args.count == 1 && args[0].contains(",") {
             let parts = args[0].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
             if parts.count == 2, let lat = Double(parts[0]), let lon = Double(parts[1]) {
-                return .coordinates(latitude: lat, longitude: lon, timeZone: .current)
+                return .coordinates(latitude: lat, longitude: lon, timeZone: .current, date: targetDate)
             }
         }
 
         // Check for space-separated numbers: e.g. "23.0225" "72.5714" ["Asia/Kolkata"]
         if args.count >= 2, let lat = Double(args[0]), let lon = Double(args[1]) {
             let tz = args.count > 2 ? (TimeZone(identifier: args[2]) ?? .current) : .current
-            return .coordinates(latitude: lat, longitude: lon, timeZone: tz)
+            return .coordinates(latitude: lat, longitude: lon, timeZone: tz, date: targetDate)
         }
 
         // Default: treat as location string
-        return .address(args.joined(separator: " "))
+        return .address(args.joined(separator: " "), date: targetDate)
     }
 
     private static func indicator(for type: ChoghadiyaType) -> String {
