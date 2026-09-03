@@ -8,23 +8,38 @@
 import Foundation
 import ChoghadiyaKit
 
+enum InputMode {
+    case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone)
+    case address(String)
+}
+
 @main
 struct ChoghadiyaDemo {
     static func main() async {
-        let location = CommandLine.arguments.count > 1
-            ? CommandLine.arguments.dropFirst().joined(separator: " ")
-            : "Ahmedabad, India"
+        let input = parseArguments()
 
         print("=======================================================")
         print("   🕉️  Vedic Choghadiya Schedule Demo")
         print("=======================================================")
-        print("📍 Location: \(location)")
-        print("⏳ Fetching astronomical sun times and calculating...\n")
 
         let manager = ChoghadiyaManager()
 
         do {
-            let schedule = try await manager.getSchedule(for: location)
+            let schedule: ChoghadiyaSchedule
+
+            switch input {
+            case .coordinates(let lat, let lon, let tz):
+                print("📍 Coordinates: \(lat), \(lon)")
+                print("🌐 Time Zone:   \(tz.identifier)")
+                print("⏳ Computing directly from coordinates (no geocoding)...\n")
+                schedule = try await manager.getSchedule(latitude: lat, longitude: lon, timeZone: tz)
+
+            case .address(let address):
+                print("📍 Location:    \(address)")
+                print("⏳ Geocoding address and calculating...\n")
+                schedule = try await manager.getSchedule(for: address)
+            }
+
             let timeZone = schedule.timeZone
 
             let timeFormatter = DateFormatter()
@@ -36,8 +51,8 @@ struct ChoghadiyaDemo {
             dateFormatter.timeZone = timeZone
 
             if let firstSlot = schedule.daySlots.first {
-                print("📅 Vedic Date: \(dateFormatter.string(from: firstSlot.startTime))")
-                print("🌐 Time Zone:  \(timeZone.identifier)\n")
+                print("📅 Vedic Date:  \(dateFormatter.string(from: firstSlot.startTime))")
+                print("🌐 Time Zone:   \(timeZone.identifier)\n")
             }
 
             // Highlight Currently Active Slot
@@ -77,19 +92,61 @@ struct ChoghadiyaDemo {
             }
 
             print("\n=======================================================")
-            print("💡 Tip: You can query any city: swift run ChoghadiyaDemo \"London, UK\"")
+            print("💡 Usage examples:")
+            print("   swift run ChoghadiyaDemo \"London, UK\"")
+            print("   swift run ChoghadiyaDemo 23.0225 72.5714")
+            print("   swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata")
+            print("   swift run ChoghadiyaDemo --lat 23.0225 --lon 72.5714")
             print("=======================================================")
 
         } catch {
-            print("❌ Error computing Choghadiya for '\(location)': \(error.localizedDescription)")
+            print("❌ Error computing Choghadiya: \(error.localizedDescription)")
         }
+    }
+
+    private static func parseArguments() -> InputMode {
+        let args = Array(CommandLine.arguments.dropFirst())
+
+        guard !args.isEmpty else {
+            return .address("Ahmedabad, India")
+        }
+
+        // Check for --lat and --lon flags
+        if let latIndex = args.firstIndex(of: "--lat"), latIndex + 1 < args.count,
+           let lonIndex = args.firstIndex(of: "--lon"), lonIndex + 1 < args.count,
+           let lat = Double(args[latIndex + 1]),
+           let lon = Double(args[lonIndex + 1]) {
+            let tz: TimeZone
+            if let tzIndex = args.firstIndex(of: "--tz"), tzIndex + 1 < args.count,
+               let customTz = TimeZone(identifier: args[tzIndex + 1]) {
+                tz = customTz
+            } else {
+                tz = .current
+            }
+            return .coordinates(latitude: lat, longitude: lon, timeZone: tz)
+        }
+
+        // Check for comma-separated coordinates: e.g. "23.0225,72.5714"
+        if args.count == 1 && args[0].contains(",") {
+            let parts = args[0].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2, let lat = Double(parts[0]), let lon = Double(parts[1]) {
+                return .coordinates(latitude: lat, longitude: lon, timeZone: .current)
+            }
+        }
+
+        // Check for space-separated numbers: e.g. "23.0225" "72.5714" ["Asia/Kolkata"]
+        if args.count >= 2, let lat = Double(args[0]), let lon = Double(args[1]) {
+            let tz = args.count > 2 ? (TimeZone(identifier: args[2]) ?? .current) : .current
+            return .coordinates(latitude: lat, longitude: lon, timeZone: tz)
+        }
+
+        // Default: treat as location string
+        return .address(args.joined(separator: " "))
     }
 
     private static func indicator(for type: ChoghadiyaType) -> String {
         switch type.auspiciousness {
-        case .highlyAuspicious:
-            return "🟢"
-        case .auspicious:
+        case .highlyAuspicious, .auspicious:
             return "🟢"
         case .neutral:
             return "🟡"

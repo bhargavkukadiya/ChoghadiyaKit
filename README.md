@@ -134,9 +134,13 @@ You can immediately calculate the live Choghadiya schedule for any city directly
 # Calculate today's schedule for Ahmedabad, India (default):
 swift run ChoghadiyaDemo
 
-# Or specify any city worldwide:
+# Query by city name:
 swift run ChoghadiyaDemo "London, UK"
 swift run ChoghadiyaDemo "New York, USA"
+
+# Query directly by coordinates (lat, lon, and optional timezone):
+swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata
+swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
 ```
 
 ---
