@@ -24,14 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `APISunTimesFetcher`: Thread-safe `URLSession` client with query-parameter escaping and local timezone (`tzid`) preservation.
   - Dual fetching: by human-readable address string or geographic coordinates.
   - Graceful CoreLocation fallback handling.
-- **Architectural Facade:**
+- **Architectural Facade & Coordinates:**
   - `ChoghadiyaManager`: High-level facade with full Dependency Inversion Principle (DIP) compliance.
+  - Native `CLLocationCoordinate2D` support for seamless CoreLocation and WidgetKit integration.
+- **Runnable CLI Demo (`ChoghadiyaDemo`):**
+  - Interactive terminal executable target to test live astronomical calculations for any city worldwide.
 - **Concurrency & Memory Safety:**
   - Complete Swift 6 strict concurrency readiness (`Sendable` throughout).
   - Zero data races under `-strict-concurrency=complete`.
 - **Automated Test Suite:**
-  - 20 unit tests covering all 7 weekdays, slot continuity, boundary precision, query methods, and mock dependency injection.
+  - 21 comprehensive unit tests using universal `XCTest` covering all 7 weekdays, slot continuity, boundary precision, query methods, `CLLocationCoordinate2D`, and mock dependency injection.
 - **Open-Source Infrastructure:**
-  - GitHub Actions CI workflow for macOS and Swift 5.9/6.0 testing.
+  - GitHub Actions CI workflow for macOS and Swift 5.9/6.0 testing with automatic Xcode 16 selection.
   - Issue templates for bug reports and feature requests.
-  - Pull request template, contributing guidelines, and Contributor Covenant Code of Conduct.
+  - Pull request template, contributing guidelines, security policy, and Contributor Covenant Code of Conduct.

@@ -175,6 +175,11 @@ import ChoghadiyaKit
 
 let manager = ChoghadiyaManager()
 
+// Option A: Using CLLocationCoordinate2D directly
+let coordinate = location.coordinate // CLLocationCoordinate2D
+let schedule = try await manager.getSchedule(coordinate: coordinate, timeZone: .current)
+
+// Option B: Using explicit latitude and longitude values
 let latitude = 23.0225
 let longitude = 72.5714
 let timeZone = TimeZone(identifier: "Asia/Kolkata")!
@@ -335,6 +340,15 @@ Sources/ChoghadiyaKit/
 │   └── APISunTimesFetcher.swift   # URLSession-backed client with tzid timezone escaping
 └── Facade/
     └── ChoghadiyaManager.swift    # High-level coordinator adhering to Dependency Inversion
+
+Sources/ChoghadiyaDemo/
+└── main.swift                     # Interactive runnable terminal CLI demo
+
+Tests/ChoghadiyaKitTests/
+├── ChoghadiyaCalculatorTests.swift # Verification across all 7 weekdays & boundaries
+├── ChoghadiyaScheduleTests.swift   # Active/next slot queries, Codable & Identifiable
+├── ChoghadiyaManagerTests.swift    # Mock injection, DIP & coordinate tests
+└── ChoghadiyaTypeTests.swift       # Auspiciousness qualities & ruling Grahas
 ```
 
 ### Dependency Injection & Mocking
