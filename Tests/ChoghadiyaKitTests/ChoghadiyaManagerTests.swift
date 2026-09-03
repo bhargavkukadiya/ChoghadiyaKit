@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import CoreLocation
 @testable import ChoghadiyaKit
 
 /// Thread-safe mock implementation of SunTimesFetching for deterministic testing.
@@ -63,6 +64,23 @@ final class ChoghadiyaManagerTests: XCTestCase {
         let schedule = try await manager.getSchedule(
             latitude: 23.0225,
             longitude: 72.5714,
+            timeZone: timeZone
+        )
+
+        XCTAssertEqual(mockFetcher.capturedCoordinates?.latitude, 23.0225)
+        XCTAssertEqual(mockFetcher.capturedCoordinates?.longitude, 72.5714)
+        XCTAssertEqual(schedule.daySlots.count, 8)
+        XCTAssertEqual(schedule.nightSlots.count, 8)
+    }
+
+    func testGetScheduleForCLLocationCoordinate2D() async throws {
+        let mockFetcher = MockSunTimesFetcher()
+        mockFetcher.stubbedSunTimes = makeStubSunTimes()
+
+        let manager = ChoghadiyaManager(fetcher: mockFetcher)
+        let coord = CLLocationCoordinate2D(latitude: 23.0225, longitude: 72.5714)
+        let schedule = try await manager.getSchedule(
+            coordinate: coord,
             timeZone: timeZone
         )
 

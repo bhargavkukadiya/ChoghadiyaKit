@@ -64,3 +64,28 @@ public final class ChoghadiyaManager: Sendable {
         return calculator.calculateSchedule(for: date, sunTimes: sunTimes)
     }
 }
+
+#if canImport(CoreLocation)
+import CoreLocation
+
+extension ChoghadiyaManager {
+    /// Computes the Choghadiya schedule using a `CLLocationCoordinate2D` coordinate and time zone.
+    /// - Parameters:
+    ///   - coordinate: Geographic coordinate (`CLLocationCoordinate2D`).
+    ///   - timeZone: Target time zone; defaults to `TimeZone.current`.
+    ///   - date: Target date; defaults to current date.
+    /// - Returns: `ChoghadiyaSchedule` with day and night slots.
+    public func getSchedule(
+        coordinate: CLLocationCoordinate2D,
+        timeZone: TimeZone = .current,
+        date: Date = Date()
+    ) async throws -> ChoghadiyaSchedule {
+        try await getSchedule(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+            timeZone: timeZone,
+            date: date
+        )
+    }
+}
+#endif

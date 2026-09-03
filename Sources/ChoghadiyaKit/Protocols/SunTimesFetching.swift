@@ -25,3 +25,23 @@ public protocol SunTimesFetching: Sendable {
     /// - Returns: `SunTimes` containing sunrise, sunset, and next sunrise.
     func fetchSunTimes(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date) async throws -> SunTimes
 }
+
+#if canImport(CoreLocation)
+import CoreLocation
+
+extension SunTimesFetching {
+    /// Fetches astronomical solar times using a `CLLocationCoordinate2D` coordinate.
+    public func fetchSunTimes(
+        coordinate: CLLocationCoordinate2D,
+        timeZone: TimeZone = .current,
+        date: Date = Date()
+    ) async throws -> SunTimes {
+        try await fetchSunTimes(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+            timeZone: timeZone,
+            date: date
+        )
+    }
+}
+#endif
