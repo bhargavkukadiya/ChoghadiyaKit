@@ -69,7 +69,7 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
 * 📱 **Native SwiftUI Integration:** `ChoghadiyaSlot` conforms to `Identifiable`, `Hashable`, and `Codable` for seamless use in `ForEach`, `Table`, and `TimelineView`.
 * ⚡ **Zero External Dependencies:** Built entirely with standard Apple frameworks (`Foundation`, `CoreLocation`).
 * 🧩 **Clean Architecture:** Fully decoupled protocols (`ChoghadiyaCalculating`, `SunTimesFetching`) allowing easy mock injection for unit and UI testing.
-* 🧪 **100% Tested:** Comprehensive test coverage across all 7 weekdays, slot continuity, and boundary edge cases.
+* 🧪 **100% Tested:** 31 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
 
 ---
 

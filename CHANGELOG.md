@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `APISunTimesFetcher`: Thread-safe `URLSession` client with query-parameter escaping and local timezone (`tzid`) preservation.
   - Dual fetching: by human-readable address string or geographic coordinates.
   - Coordinate range bounds (-90...90 lat, -180...180 lon) and finiteness validation.
-  - UTC solar noon date normalization and returned local calendar day verification across extreme timezones.
+  - Solar day normalization accounting for solar longitude offsets and Daylight Saving Time (e.g. Auckland NZDT, Kiritimati) with self-correcting returned date verification.
   - Graceful CoreLocation fallback handling.
 - **Architectural Facade & Coordinates:**
   - `ChoghadiyaManager`: High-level facade with full Dependency Inversion Principle (DIP) compliance.
@@ -37,8 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Concurrency & Memory Safety:**
   - Complete Swift 6 strict concurrency readiness (`Sendable` throughout).
   - Zero data races under `-strict-concurrency=complete`.
+  - Full toolchain compatibility spanning Swift 5.9 through Swift 6.0.
 - **Automated Test Suite:**
-  - 29 comprehensive unit tests using universal `XCTest` covering all 7 weekdays, slot continuity, boundary precision, query methods, coordinate bounds validation, local calendar day matching, `CLLocationCoordinate2D`, and mock dependency injection.
+  - 31 comprehensive unit tests using universal `XCTest` covering all 7 weekdays, slot continuity, boundary precision, query methods, coordinate bounds validation, local calendar day matching across extreme timezones and DST, `CLLocationCoordinate2D`, and mock dependency injection.
 - **Open-Source Infrastructure:**
   - GitHub Actions CI workflow for macOS and Swift 5.9/6.0 testing with automatic Xcode 16 selection.
   - Issue templates for bug reports and feature requests.
