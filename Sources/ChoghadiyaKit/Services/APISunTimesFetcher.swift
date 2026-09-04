@@ -41,38 +41,120 @@ public final class APISunTimesFetcher: SunTimesFetching, Sendable {
     ///   - date: Target date.
     /// - Returns: `SunTimes` containing sunrise, sunset, and next sunrise.
     public func fetchSunTimes(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date) async throws -> SunTimes {
-        var calendar = Calendar.current
-        calendar.timeZone = timeZone
+        guard latitude.isFinite, (-90.0...90.0).contains(latitude),
+              longitude.isFinite, (-180.0...180.0).contains(longitude) else {
+            throw ChoghadiyaError.invalidCoordinates
+        }
 
-        let dateFormatter = Self.makeDateFormatter(timeZone: timeZone)
-        let dateString = dateFormatter.string(from: date)
+        var localCalendar = Calendar(identifier: .gregorian)
+        localCalendar.timeZone = timeZone
 
-        guard let nextDate = calendar.date(byAdding: .day, value: 1, to: date) else {
+        guard let nextDate = localCalendar.date(byAdding: .day, value: 1, to: date) else {
             throw ChoghadiyaError.parsingError
         }
-        let nextDateString = dateFormatter.string(from: nextDate)
 
-        // Concurrent requests for today and next day
-        let currentSession = self.session
-        async let todayResponse = Self.fetchSunriseData(session: currentSession, lat: latitude, lon: longitude, dateString: dateString, timeZone: timeZone)
-        async let nextResponse = Self.fetchSunriseData(session: currentSession, lat: latitude, lon: longitude, dateString: nextDateString, timeZone: timeZone)
+        // Concurrently fetch solar times for target date and next date
+        async let todaySolar = fetchSolarTimesForDay(
+            latitude: latitude,
+            longitude: longitude,
+            timeZone: timeZone,
+            targetDate: date
+        )
 
-        let (todayData, nextData) = try await (todayResponse, nextResponse)
+        async let nextSolar = fetchSolarTimesForDay(
+            latitude: latitude,
+            longitude: longitude,
+            timeZone: timeZone,
+            targetDate: nextDate
+        )
 
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime]
-
-        guard let sunrise = isoFormatter.date(from: todayData.results.sunrise),
-              let sunset = isoFormatter.date(from: todayData.results.sunset),
-              let nextSunrise = isoFormatter.date(from: nextData.results.sunrise) else {
-            throw ChoghadiyaError.parsingError
-        }
+        let ((sunrise, sunset), (nextSunrise, _)) = try await (todaySolar, nextSolar)
 
         guard sunrise < sunset && sunset < nextSunrise else {
             throw ChoghadiyaError.invalidSunTimes
         }
 
         return SunTimes(sunrise: sunrise, sunset: sunset, nextSunrise: nextSunrise, timeZone: timeZone)
+    }
+
+    // MARK: - Solar Retrieval Helpers
+
+    private func fetchSolarTimesForDay(
+        latitude: Double,
+        longitude: Double,
+        timeZone: TimeZone,
+        targetDate: Date
+    ) async throws -> (sunrise: Date, sunset: Date) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+
+        // Compute initial query date taking into account difference between civil timezone and solar longitude
+        let civilOffsetHours = Double(timeZone.secondsFromGMT(for: targetDate)) / 3600.0
+        let solarOffsetHours = longitude / 15.0
+        let dayShift = Int(((civilOffsetHours - solarOffsetHours) / 24.0).rounded())
+
+        guard let initialQueryDate = calendar.date(byAdding: .day, value: -dayShift, to: targetDate) else {
+            throw ChoghadiyaError.parsingError
+        }
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.timeZone = timeZone
+
+        var currentQueryDate = initialQueryDate
+        var currentQueryString = dateFormatter.string(from: currentQueryDate)
+
+        var data = try await Self.fetchSunriseData(
+            session: self.session,
+            lat: latitude,
+            lon: longitude,
+            dateString: currentQueryString,
+            timeZone: timeZone
+        )
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime]
+
+        guard var sunrise = isoFormatter.date(from: data.results.sunrise),
+              var sunset = isoFormatter.date(from: data.results.sunset) else {
+            throw ChoghadiyaError.parsingError
+        }
+
+        // If returned sunrise does not match targetDate in timeZone, perform a self-correcting re-query
+        if !calendar.isDate(sunrise, inSameDayAs: targetDate) {
+            let startOfTarget = calendar.startOfDay(for: targetDate)
+            let startOfReturned = calendar.startOfDay(for: sunrise)
+            let dayDiff = calendar.dateComponents([.day], from: startOfTarget, to: startOfReturned).day ?? 0
+
+            if dayDiff != 0, let correctedDate = calendar.date(byAdding: .day, value: -dayDiff, to: currentQueryDate) {
+                currentQueryDate = correctedDate
+                currentQueryString = dateFormatter.string(from: currentQueryDate)
+
+                data = try await Self.fetchSunriseData(
+                    session: self.session,
+                    lat: latitude,
+                    lon: longitude,
+                    dateString: currentQueryString,
+                    timeZone: timeZone
+                )
+
+                guard let reSunrise = isoFormatter.date(from: data.results.sunrise),
+                      let reSunset = isoFormatter.date(from: data.results.sunset) else {
+                    throw ChoghadiyaError.parsingError
+                }
+
+                sunrise = reSunrise
+                sunset = reSunset
+            }
+        }
+
+        // Final verification that the returned local solar day strictly matches targetDate
+        guard calendar.isDate(sunrise, inSameDayAs: targetDate) else {
+            throw ChoghadiyaError.invalidSunTimes
+        }
+
+        return (sunrise, sunset)
     }
 
     // MARK: - Geocoding

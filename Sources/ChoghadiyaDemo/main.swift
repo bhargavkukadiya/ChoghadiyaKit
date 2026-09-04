@@ -6,18 +6,41 @@
 //
 
 import Foundation
+import CoreLocation
 import ChoghadiyaKit
 
+struct DateComponentsInput {
+    let year: Int
+    let month: Int
+    let day: Int
+}
+
 enum InputMode {
-    case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date)
-    case address(String, date: Date)
+    case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone, dateComponents: DateComponentsInput?)
+    case address(String, dateComponents: DateComponentsInput?)
     case help
+}
+
+enum CLIError: LocalizedError {
+    case argumentError(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .argumentError(let message):
+            return message
+        }
+    }
 }
 
 @main
 struct ChoghadiyaDemo {
     static func main() async {
-        let input = parseArguments()
+        let input: InputMode
+        do {
+            input = try parseArguments()
+        } catch {
+            exitWithDiagnostic(error.localizedDescription, code: 2)
+        }
 
         if case .help = input {
             printHelp()
@@ -34,16 +57,41 @@ struct ChoghadiyaDemo {
             let schedule: ChoghadiyaSchedule
 
             switch input {
-            case .coordinates(let lat, let lon, let tz, let date):
+            case .coordinates(let lat, let lon, let tz, let dateComps):
                 print("📍 Coordinates: \(lat), \(lon)")
                 print("🌐 Time Zone:   \(tz.identifier)")
                 print("⏳ Computing directly from coordinates (no geocoding)...\n")
-                schedule = try await manager.getSchedule(latitude: lat, longitude: lon, timeZone: tz, date: date)
 
-            case .address(let address, let date):
+                let targetDate = resolveDate(components: dateComps, in: tz)
+                schedule = try await manager.getSchedule(latitude: lat, longitude: lon, timeZone: tz, date: targetDate)
+
+            case .address(let address, let dateComps):
                 print("📍 Location:    \(address)")
                 print("⏳ Geocoding address and calculating...\n")
-                schedule = try await manager.getSchedule(for: address, date: date)
+
+                if let dateComps {
+                    // Resolve destination timezone first to ensure date components are constructed in target timezone
+                    let geocoder = CLGeocoder()
+                    let placemarks: [CLPlacemark]
+                    do {
+                        placemarks = try await geocoder.geocodeAddressString(address)
+                    } catch {
+                        throw ChoghadiyaError.geocodingFailed(error.localizedDescription)
+                    }
+                    guard let placemark = placemarks.first, let loc = placemark.location else {
+                        throw ChoghadiyaError.locationNotFound
+                    }
+                    let tz = placemark.timeZone ?? .current
+                    let targetDate = resolveDate(components: dateComps, in: tz)
+                    schedule = try await manager.getSchedule(
+                        latitude: loc.coordinate.latitude,
+                        longitude: loc.coordinate.longitude,
+                        timeZone: tz,
+                        date: targetDate
+                    )
+                } else {
+                    schedule = try await manager.getSchedule(for: address, date: Date())
+                }
 
             case .help:
                 return
@@ -105,70 +153,133 @@ struct ChoghadiyaDemo {
             print("=======================================================")
 
         } catch {
-            print("❌ Error computing Choghadiya: \(error.localizedDescription)")
+            exitWithDiagnostic("Failed to compute Choghadiya: \(error.localizedDescription)", code: 1)
         }
     }
 
-    private static func parseArguments() -> InputMode {
+    private static func resolveDate(components: DateComponentsInput?, in timeZone: TimeZone) -> Date {
+        guard let comps = components else { return Date() }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        var dc = DateComponents()
+        dc.year = comps.year
+        dc.month = comps.month
+        dc.day = comps.day
+        dc.hour = 12
+        dc.minute = 0
+        dc.second = 0
+        return cal.date(from: dc) ?? Date()
+    }
+
+    private static func exitWithDiagnostic(_ message: String, code: Int32) -> Never {
+        let output = "❌ Error: \(message)\n"
+        FileHandle.standardError.write(Data(output.utf8))
+        exit(code)
+    }
+
+    private static func parseArguments() throws -> InputMode {
         var args = Array(CommandLine.arguments.dropFirst())
 
         if args.contains("-h") || args.contains("--help") || args.contains("help") {
             return .help
         }
 
-        guard !args.isEmpty else {
-            return .address("Ahmedabad, India", date: Date())
-        }
-
         // Extract optional --date YYYY-MM-DD
-        var targetDate = Date()
-        if let dateIdx = args.firstIndex(of: "--date"), dateIdx + 1 < args.count {
-            let dateStr = args[dateIdx + 1]
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            df.locale = Locale(identifier: "en_US_POSIX")
-            if let parsed = df.date(from: dateStr) {
-                targetDate = parsed
+        var parsedDateComps: DateComponentsInput?
+        if let dateIdx = args.firstIndex(of: "--date") {
+            guard dateIdx + 1 < args.count else {
+                throw CLIError.argumentError("Missing value for --date option. Expected format: YYYY-MM-DD")
             }
+            let dateStr = args[dateIdx + 1]
+            guard let comps = parseStrictDateString(dateStr) else {
+                throw CLIError.argumentError("Invalid date '\(dateStr)'. Expected a valid calendar date in YYYY-MM-DD format.")
+            }
+            parsedDateComps = comps
             args.remove(at: dateIdx + 1)
             args.remove(at: dateIdx)
         }
 
-        guard !args.isEmpty else {
-            return .address("Ahmedabad, India", date: targetDate)
+        // Extract optional --tz <identifier>
+        var flagTimeZone: TimeZone?
+        if let tzIdx = args.firstIndex(of: "--tz") {
+            guard tzIdx + 1 < args.count else {
+                throw CLIError.argumentError("Missing value for --tz option.")
+            }
+            let tzStr = args[tzIdx + 1]
+            guard let tz = TimeZone(identifier: tzStr) else {
+                throw CLIError.argumentError("Invalid time zone identifier '\(tzStr)'. Expected a valid IANA time zone identifier (e.g. 'America/New_York', 'Asia/Kolkata').")
+            }
+            flagTimeZone = tz
+            args.remove(at: tzIdx + 1)
+            args.remove(at: tzIdx)
         }
 
-        // Check for --lat and --lon flags
-        if let latIndex = args.firstIndex(of: "--lat"), latIndex + 1 < args.count,
-           let lonIndex = args.firstIndex(of: "--lon"), lonIndex + 1 < args.count,
-           let lat = Double(args[latIndex + 1]),
-           let lon = Double(args[lonIndex + 1]) {
-            let tz: TimeZone
-            if let tzIndex = args.firstIndex(of: "--tz"), tzIndex + 1 < args.count,
-               let customTz = TimeZone(identifier: args[tzIndex + 1]) {
-                tz = customTz
-            } else {
-                tz = .current
+        guard !args.isEmpty else {
+            return .address("Ahmedabad, India", dateComponents: parsedDateComps)
+        }
+
+        // Check for explicit --lat and --lon flags
+        if let latIndex = args.firstIndex(of: "--lat"), let lonIndex = args.firstIndex(of: "--lon") {
+            guard latIndex + 1 < args.count else {
+                throw CLIError.argumentError("Missing value for --lat option.")
             }
-            return .coordinates(latitude: lat, longitude: lon, timeZone: tz, date: targetDate)
+            guard lonIndex + 1 < args.count else {
+                throw CLIError.argumentError("Missing value for --lon option.")
+            }
+            guard let lat = Double(args[latIndex + 1]) else {
+                throw CLIError.argumentError("Invalid latitude value '\(args[latIndex + 1])'. Expected a decimal number.")
+            }
+            guard let lon = Double(args[lonIndex + 1]) else {
+                throw CLIError.argumentError("Invalid longitude value '\(args[lonIndex + 1])'. Expected a decimal number.")
+            }
+            let tz = flagTimeZone ?? .current
+            return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
         }
 
         // Check for comma-separated coordinates: e.g. "23.0225,72.5714"
         if args.count == 1 && args[0].contains(",") {
             let parts = args[0].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
             if parts.count == 2, let lat = Double(parts[0]), let lon = Double(parts[1]) {
-                return .coordinates(latitude: lat, longitude: lon, timeZone: .current, date: targetDate)
+                let tz = flagTimeZone ?? .current
+                return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
             }
         }
 
         // Check for space-separated numbers: e.g. "23.0225" "72.5714" ["Asia/Kolkata"]
         if args.count >= 2, let lat = Double(args[0]), let lon = Double(args[1]) {
-            let tz = args.count > 2 ? (TimeZone(identifier: args[2]) ?? .current) : .current
-            return .coordinates(latitude: lat, longitude: lon, timeZone: tz, date: targetDate)
+            let tz: TimeZone
+            if args.count > 2 {
+                let tzStr = args[2]
+                guard let parsedTz = TimeZone(identifier: tzStr) else {
+                    throw CLIError.argumentError("Invalid time zone identifier '\(tzStr)'. Expected a valid IANA time zone identifier (e.g. 'America/New_York', 'Asia/Kolkata').")
+                }
+                tz = parsedTz
+            } else {
+                tz = flagTimeZone ?? .current
+            }
+            return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
         }
 
-        // Default: treat as location string
-        return .address(args.joined(separator: " "), date: targetDate)
+        // Default: treat remaining args as location string
+        return .address(args.joined(separator: " "), dateComponents: parsedDateComps)
+    }
+
+    private static func parseStrictDateString(_ str: String) -> DateComponentsInput? {
+        let parts = str.split(separator: "-")
+        guard parts.count == 3,
+              let year = Int(parts[0]), parts[0].count == 4,
+              let month = Int(parts[1]), parts[1].count == 2, (1...12).contains(month),
+              let day = Int(parts[2]), parts[2].count == 2, (1...31).contains(day) else {
+            return nil
+        }
+
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = TimeZone(secondsFromGMT: 0)!
+        let comps = DateComponents(year: year, month: month, day: day)
+        guard comps.isValidDate(in: gregorian) else {
+            return nil
+        }
+        return DateComponentsInput(year: year, month: month, day: day)
     }
 
     private static func printHelp() {

@@ -10,6 +10,7 @@ import Foundation
 /// Domain-specific errors thrown by ChoghadiyaKit.
 public enum ChoghadiyaError: LocalizedError, Sendable, Equatable {
     case invalidURL
+    case invalidCoordinates
     case locationNotFound
     case geocodingFailed(String)
     case invalidResponse
@@ -20,6 +21,8 @@ public enum ChoghadiyaError: LocalizedError, Sendable, Equatable {
         switch self {
         case .invalidURL:
             return "Invalid URL configuration."
+        case .invalidCoordinates:
+            return "Coordinates are out of valid range (-90...90 latitude, -180...180 longitude) or non-finite."
         case .locationNotFound:
             return "Could not find the specified location."
         case .geocodingFailed(let reason):

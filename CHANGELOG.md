@@ -23,19 +23,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Networking & Services:**
   - `APISunTimesFetcher`: Thread-safe `URLSession` client with query-parameter escaping and local timezone (`tzid`) preservation.
   - Dual fetching: by human-readable address string or geographic coordinates.
+  - Coordinate range bounds (-90...90 lat, -180...180 lon) and finiteness validation.
+  - UTC solar noon date normalization and returned local calendar day verification across extreme timezones.
   - Graceful CoreLocation fallback handling.
 - **Architectural Facade & Coordinates:**
   - `ChoghadiyaManager`: High-level facade with full Dependency Inversion Principle (DIP) compliance.
   - Native `CLLocationCoordinate2D` support for seamless CoreLocation and WidgetKit integration.
 - **Runnable CLI Demo (`ChoghadiyaDemo`):**
   - Interactive terminal executable target to test live astronomical calculations for any city or coordinates worldwide (`swift run ChoghadiyaDemo`).
-  - Supports `--date YYYY-MM-DD` for querying any historical or future calendar date.
+  - Supports `--date YYYY-MM-DD` for querying any historical or future calendar date with timezone preservation.
+  - Strict date and timezone validation, writing errors to `stderr` with non-zero exit codes.
   - Built-in `--help` / `-h` manual and interactive argument parser.
 - **Concurrency & Memory Safety:**
   - Complete Swift 6 strict concurrency readiness (`Sendable` throughout).
   - Zero data races under `-strict-concurrency=complete`.
 - **Automated Test Suite:**
-  - 21 comprehensive unit tests using universal `XCTest` covering all 7 weekdays, slot continuity, boundary precision, query methods, `CLLocationCoordinate2D`, and mock dependency injection.
+  - 29 comprehensive unit tests using universal `XCTest` covering all 7 weekdays, slot continuity, boundary precision, query methods, coordinate bounds validation, local calendar day matching, `CLLocationCoordinate2D`, and mock dependency injection.
 - **Open-Source Infrastructure:**
   - GitHub Actions CI workflow for macOS and Swift 5.9/6.0 testing with automatic Xcode 16 selection.
   - Issue templates for bug reports and feature requests.

@@ -390,6 +390,7 @@ Sources/ChoghadiyaDemo/
 └── main.swift                     # Interactive runnable terminal CLI demo
 
 Tests/ChoghadiyaKitTests/
+├── APISunTimesFetcherTests.swift   # Coordinate validation, URLProtocol stubbing & local day checks
 ├── ChoghadiyaCalculatorTests.swift # Verification across all 7 weekdays & boundaries
 ├── ChoghadiyaScheduleTests.swift   # Active/next slot queries, Codable & Identifiable
 ├── ChoghadiyaManagerTests.swift    # Mock injection, DIP & coordinate tests
