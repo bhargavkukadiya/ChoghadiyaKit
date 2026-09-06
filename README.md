@@ -97,7 +97,7 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
    ```
    https://github.com/bhargavkukadiya/ChoghadiyaKit.git
    ```
-4. Set the dependency rule to **Up to Next Major Version** starting at `1.0.0`.
+4. Set the dependency rule to **Up to Next Major Version** starting at `1.0.1`.
 5. Click **Add Package**.
 
 #### Via `Package.swift`
@@ -111,7 +111,7 @@ let package = Package(
     name: "MyApplication",
     platforms: [.iOS(.v15), .macOS(.v12)],
     dependencies: [
-        .package(url: "https://github.com/bhargavkukadiya/ChoghadiyaKit.git", from: "1.0.0")
+        .package(url: "https://github.com/bhargavkukadiya/ChoghadiyaKit.git", from: "1.0.1")
     ],
     targets: [
         .target(

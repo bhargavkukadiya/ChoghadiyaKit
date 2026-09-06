@@ -10,8 +10,8 @@ on:
         description: 'Release tag to publish (e.g. v1.0.1)'
         required: true
         type: string
-      skip_signing:
-        description: 'Skip Developer ID signing and notarization (test dry-run only; will NOT publish)'
+      dry_run:
+        description: 'Dry run only (test build and package without publishing release to GitHub)'
         required: false
         type: boolean
         default: false
@@ -59,7 +59,7 @@ jobs:
         # Normalize fully qualified tag input (strip refs/tags/ if provided)
         TAG="${TAG#refs/tags/}"
 
-        # Strictly validate complete SemVer 2.0.0 (e.g. v1.0.1, v1.0.1-rc.1, v1.0.1+build.1)
+        # Strictly validate complete SemVer 2.0.0 (e.g. v1.0.1, v1.0.1-beta.1, v1.0.1+build.1)
         SEMVER_REGEX='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
         if [[ ! "$TAG" =~ $SEMVER_REGEX ]]; then
           echo "::error::Invalid release tag '$TAG'. Expected valid SemVer 2.0.0 (e.g. 'v1.0.1' or 'v1.0.1-beta.1'). Zero-padded numeric identifiers are prohibited."
@@ -85,51 +85,49 @@ jobs:
     - name: Build Optimized CLI Binary
       run: swift build -c release --product ChoghadiyaDemo
 
-    # P1: Sign with Apple Developer ID Application certificate
-    - name: Import Signing Certificate & Codesign
-      if: inputs.skip_signing != true
+    # Code signing: Signs with Apple Developer ID Application certificate if configured;
+    # otherwise gracefully applies ad-hoc signature for open-source distribution.
+    - name: Codesign Binary
+      id: codesign
       env:
         MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
         MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
       run: |
-        if [ -z "$MACOS_CERTIFICATE" ]; then
-          echo "::error::Secret 'MACOS_CERTIFICATE' is missing. Apple Developer ID signing is required for release distributions."
-          exit 1
+        if [ -n "$MACOS_CERTIFICATE" ] && [ -n "$MACOS_CERTIFICATE_PWD" ]; then
+          echo "🔐 Found Apple Developer ID secrets. Setting up keychain for official signing..."
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$MACOS_CERTIFICATE_PWD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/certificate.p12"
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application:" | head -1 | awk -F'"' '{print $2}')
+          if [ -z "$SIGNING_IDENTITY" ]; then
+            echo "::warning::No 'Developer ID Application' identity found in imported certificate. Falling back to ad-hoc codesign."
+            codesign -s - --force --options runtime .build/release/ChoghadiyaDemo
+            echo "has_developer_id=false" >> $GITHUB_OUTPUT
+          else
+            echo "Signing binary with Developer ID identity: $SIGNING_IDENTITY"
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN_PATH" --sign "$SIGNING_IDENTITY" .build/release/ChoghadiyaDemo
+            codesign --verify --deep --strict --verbose=2 .build/release/ChoghadiyaDemo
+            echo "has_developer_id=true" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "ℹ️ Apple Developer ID secrets not configured. Applying standard ad-hoc code signing for open-source distribution."
+          codesign -s - --force --options runtime .build/release/ChoghadiyaDemo
+          echo "has_developer_id=false" >> $GITHUB_OUTPUT
         fi
-
-        KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
-        KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
-
-        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-        security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-        echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-        security import "$RUNNER_TEMP/certificate.p12" \
-          -k "$KEYCHAIN_PATH" \
-          -P "$MACOS_CERTIFICATE_PWD" \
-          -T /usr/bin/codesign \
-          -T /usr/bin/security
-        rm -f "$RUNNER_TEMP/certificate.p12"
-
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-        SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application:" | head -1 | awk -F'"' '{print $2}')
-        if [ -z "$SIGNING_IDENTITY" ]; then
-          echo "::error::No 'Developer ID Application' identity found in imported certificate."
-          exit 1
-        fi
-
-        echo "Signing binary with identity: $SIGNING_IDENTITY"
-        codesign --force --options runtime --timestamp --keychain "$KEYCHAIN_PATH" --sign "$SIGNING_IDENTITY" .build/release/ChoghadiyaDemo
-        codesign --verify --deep --strict --verbose=2 .build/release/ChoghadiyaDemo
-
-    # Ad-hoc sign for test dry-run dispatch only
-    - name: Ad-hoc Codesign (Test Dry-Run Only)
-      if: inputs.skip_signing == true
-      run: |
-        echo "⚠️ Test dispatch mode: Developer ID signing skipped. Applying ad-hoc signature for local verification only."
-        codesign -s - --force --options runtime .build/release/ChoghadiyaDemo
 
     # Package archive
     - name: Package Release Assets
@@ -152,6 +150,11 @@ jobs:
         To install system-wide:
           sudo cp ChoghadiyaDemo /usr/local/bin/choghadiya
           choghadiya --help
+
+        macOS Gatekeeper Note:
+          If macOS displays a security warning when opening binaries downloaded from the internet:
+            xattr -d com.apple.quarantine ChoghadiyaDemo
+            chmod +x ChoghadiyaDemo
         EOF
 
         cd staging
@@ -159,9 +162,9 @@ jobs:
         cd ../artifacts
         shasum -a 256 ChoghadiyaDemo-macos-arm64.zip > checksums.txt
 
-    # P1: Notarize archive with Apple notarytool and assert terminal acceptance
+    # Notarize archive with Apple notarytool (only if signed with Developer ID)
     - name: Notarize Release Archive & Assert Acceptance
-      if: inputs.skip_signing != true
+      if: steps.codesign.outputs.has_developer_id == 'true'
       env:
         APPLE_ID: ${{ secrets.APPLE_ID }}
         APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -220,7 +223,7 @@ jobs:
         echo "✅ Notarization successfully accepted by Apple!"
         rm -f "$RUNNER_TEMP/AuthKey_"*.p8
 
-    # Clean up temporary keychain
+    # Clean up temporary keychain (if created)
     - name: Clean Up Keychain
       if: always()
       run: |
@@ -230,24 +233,22 @@ jobs:
         fi
         rm -f "$RUNNER_TEMP/AuthKey_"*.p8
 
-    # P1: Do not publish when signing is skipped (if: inputs.skip_signing != true)
-    # P1: Enforce --verify-tag with native GitHub CLI to prevent creating tags on default branch
-    # P2: Uses native pre-installed Go GitHub CLI (zero Node runtime)
+    # Publish Release & Assets (publishes on tags or manual dispatch unless dry_run is true)
     - name: Publish Release & Assets
-      if: inputs.skip_signing != true
+      if: inputs.dry_run != true
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ steps.tag_info.outputs.tag }}
       run: |
         if gh release view "$TAG" >/dev/null 2>&1; then
-          echo "Release '$TAG' already exists. Uploading signed & notarized assets..."
+          echo "Release '$TAG' already exists. Uploading assets..."
           gh release upload "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt --clobber
         else
-          echo "Creating release '$TAG' and uploading signed & notarized assets..."
+          echo "Creating release '$TAG' and uploading assets..."
           gh release create "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt --verify-tag --generate-notes
         fi
 
     - name: Dry Run Notice
-      if: inputs.skip_signing == true
+      if: inputs.dry_run == true
       run: |
         echo "ℹ️ Dry-run test dispatch completed successfully. Executable was tested, built, and packaged without publishing."
