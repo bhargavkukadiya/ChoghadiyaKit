@@ -13,7 +13,8 @@ final class ChoghadiyaScheduleTests: XCTestCase {
     private let timeZone = TimeZone(identifier: "Asia/Kolkata")!
 
     private func makeSampleSchedule() -> (schedule: ChoghadiyaSchedule, sunrise: Date, sunset: Date, nextSunrise: Date) {
-        let calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
         let baseDate = Date(timeIntervalSince1970: 1700000000)
         let sunrise = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: baseDate)!
         let sunset = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: baseDate)!
@@ -96,5 +97,17 @@ final class ChoghadiyaScheduleTests: XCTestCase {
         let (schedule, _, _, _) = makeSampleSchedule()
         let ids = Set(schedule.allSlots.map(\.id))
         XCTAssertEqual(ids.count, 16)
+    }
+
+    func testSolarBoundaries() {
+        let (schedule, sunrise, sunset, nextSunrise) = makeSampleSchedule()
+        XCTAssertEqual(schedule.sunrise, sunrise)
+        XCTAssertEqual(schedule.sunset, sunset)
+        XCTAssertEqual(schedule.nextSunrise, nextSunrise)
+
+        let emptySchedule = ChoghadiyaSchedule(daySlots: [], nightSlots: [], timeZone: timeZone)
+        XCTAssertNil(emptySchedule.sunrise)
+        XCTAssertNil(emptySchedule.sunset)
+        XCTAssertNil(emptySchedule.nextSunrise)
     }
 }

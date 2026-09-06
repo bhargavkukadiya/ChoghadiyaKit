@@ -109,7 +109,14 @@ struct ChoghadiyaDemo {
 
             if let firstSlot = schedule.daySlots.first {
                 print("📅 Vedic Date:  \(dateFormatter.string(from: firstSlot.startTime))")
-                print("🌐 Time Zone:   \(timeZone.identifier)\n")
+                print("🌐 Time Zone:   \(timeZone.identifier)")
+            }
+
+            if let sunrise = schedule.sunrise, let sunset = schedule.sunset {
+                print("🌅 Sunrise:     \(timeFormatter.string(from: sunrise))")
+                print("🌇 Sunset:      \(timeFormatter.string(from: sunset))\n")
+            } else {
+                print("")
             }
 
             // Highlight Currently Active Slot

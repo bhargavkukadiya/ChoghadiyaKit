@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-09-06
+
+### Added
+- **Astronomical Solar Convenience Accessors (`ChoghadiyaSchedule`):** Added `sunrise`, `sunset`, and `nextSunrise` computed properties to directly inspect solar boundaries without manually indexing `daySlots` or `nightSlots`.
+- **CLI Solar Summary (`ChoghadiyaDemo`):** Formatted sunrise and sunset timestamps now display in the terminal header.
+
+### Fixed
+- **Deterministic Weekday Calculation (`ChoghadiyaCalculator`):** Explicitly instantiate `Calendar(identifier: .gregorian)` instead of `Calendar.current` to guarantee deterministic Vedic weekday calculation regardless of user device locale or non-Gregorian calendar preferences (e.g. Buddhist, Islamic, Hebrew, Japanese).
+
+### Removed
+- **Unused Helper (`APISunTimesFetcher`):** Removed unused private static `makeDateFormatter(timeZone:)` method.
+
+---
+
 ## [1.0.0] - 2026-09-03
 
 ### Added

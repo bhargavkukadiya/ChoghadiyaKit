@@ -1,0 +1,253 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v1.0.1)'
+        required: true
+        type: string
+      skip_signing:
+        description: 'Skip Developer ID signing and notarization (test dry-run only; will NOT publish)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build, Sign, Test & Publish Release
+    runs-on: macos-15
+
+    steps:
+    # P1: Fully qualify manual checkout as a tag (refs/tags/...) to prevent branch-preferred resolution
+    # P1: Upgrade to Node 24 checkout action pinned to immutable full commit SHA (actions/checkout v6.1.0)
+    - name: Checkout Code at Requested Tag
+      uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      with:
+        ref: ${{ inputs.tag != '' && (startsWith(inputs.tag, 'refs/tags/') && inputs.tag || format('refs/tags/{0}', inputs.tag)) || github.ref }}
+        fetch-depth: 0
+
+    # P2: Native Xcode 16 selection with zero Node dependencies
+    - name: Select Xcode 16
+      run: |
+        XCODE_APP=$(find /Applications -maxdepth 1 -name "Xcode_16*.app" | sort -V | tail -n 1)
+        if [ -z "$XCODE_APP" ]; then
+          XCODE_APP="/Applications/Xcode.app"
+        fi
+        echo "Selected Xcode: $XCODE_APP"
+        sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+        echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> $GITHUB_ENV
+        xcodebuild -version
+        swift --version
+
+    # P1: Keep tag value out of generated shell code via env context mapping
+    # P2: Validate the complete semantic version strictly adhering to SemVer 2.0.0
+    # Note: Numeric prerelease identifiers must NOT include leading zeroes (e.g. '01' is rejected)
+    - name: Validate Release Tag and Commit
+      id: tag_info
+      env:
+        INPUT_TAG: ${{ inputs.tag }}
+        REF_NAME: ${{ github.ref_name }}
+      run: |
+        TAG="${INPUT_TAG:-$REF_NAME}"
+        # Normalize fully qualified tag input (strip refs/tags/ if provided)
+        TAG="${TAG#refs/tags/}"
+
+        # Strictly validate complete SemVer 2.0.0 (e.g. v1.0.1, v1.0.1-rc.1, v1.0.1+build.1)
+        SEMVER_REGEX='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+        if [[ ! "$TAG" =~ $SEMVER_REGEX ]]; then
+          echo "::error::Invalid release tag '$TAG'. Expected valid SemVer 2.0.0 (e.g. 'v1.0.1' or 'v1.0.1-beta.1'). Zero-padded numeric identifiers are prohibited."
+          exit 1
+        fi
+
+        # Verify tag exists in repository
+        if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1 && ! git rev-parse -q --verify "$TAG" >/dev/null 2>&1; then
+          echo "::error::Tag '$TAG' does not exist in the repository."
+          exit 1
+        fi
+
+        COMMIT_SHA=$(git rev-parse HEAD)
+        echo "Resolved release tag: $TAG"
+        echo "Building commit:      $COMMIT_SHA"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+    # P2: Run tests before building or publishing
+    - name: Run Test Suite
+      run: swift test -Xswiftc -strict-concurrency=complete
+
+    # Build optimized CLI binary
+    - name: Build Optimized CLI Binary
+      run: swift build -c release --product ChoghadiyaDemo
+
+    # P1: Sign with Apple Developer ID Application certificate
+    - name: Import Signing Certificate & Codesign
+      if: inputs.skip_signing != true
+      env:
+        MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+        MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      run: |
+        if [ -z "$MACOS_CERTIFICATE" ]; then
+          echo "::error::Secret 'MACOS_CERTIFICATE' is missing. Apple Developer ID signing is required for release distributions."
+          exit 1
+        fi
+
+        KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+        KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+        echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+        security import "$RUNNER_TEMP/certificate.p12" \
+          -k "$KEYCHAIN_PATH" \
+          -P "$MACOS_CERTIFICATE_PWD" \
+          -T /usr/bin/codesign \
+          -T /usr/bin/security
+        rm -f "$RUNNER_TEMP/certificate.p12"
+
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+        SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application:" | head -1 | awk -F'"' '{print $2}')
+        if [ -z "$SIGNING_IDENTITY" ]; then
+          echo "::error::No 'Developer ID Application' identity found in imported certificate."
+          exit 1
+        fi
+
+        echo "Signing binary with identity: $SIGNING_IDENTITY"
+        codesign --force --options runtime --timestamp --keychain "$KEYCHAIN_PATH" --sign "$SIGNING_IDENTITY" .build/release/ChoghadiyaDemo
+        codesign --verify --deep --strict --verbose=2 .build/release/ChoghadiyaDemo
+
+    # Ad-hoc sign for test dry-run dispatch only
+    - name: Ad-hoc Codesign (Test Dry-Run Only)
+      if: inputs.skip_signing == true
+      run: |
+        echo "⚠️ Test dispatch mode: Developer ID signing skipped. Applying ad-hoc signature for local verification only."
+        codesign -s - --force --options runtime .build/release/ChoghadiyaDemo
+
+    # Package archive
+    - name: Package Release Assets
+      run: |
+        mkdir -p staging artifacts
+        cp .build/release/ChoghadiyaDemo staging/
+        cp LICENSE staging/
+        cat << 'EOF' > staging/README.txt
+        ChoghadiyaDemo (macOS Apple Silicon)
+        ===================================
+        A standalone command-line tool for Vedic Choghadiya calculations.
+
+        Quick Start:
+          ./ChoghadiyaDemo
+          ./ChoghadiyaDemo "London, UK"
+          ./ChoghadiyaDemo 21.1702 72.8311
+          ./ChoghadiyaDemo 21.1702 72.8311 --date 2026-10-24
+          ./ChoghadiyaDemo --help
+
+        To install system-wide:
+          sudo cp ChoghadiyaDemo /usr/local/bin/choghadiya
+          choghadiya --help
+        EOF
+
+        cd staging
+        zip -9 -X ../artifacts/ChoghadiyaDemo-macos-arm64.zip ChoghadiyaDemo LICENSE README.txt
+        cd ../artifacts
+        shasum -a 256 ChoghadiyaDemo-macos-arm64.zip > checksums.txt
+
+    # P1: Notarize archive with Apple notarytool and assert terminal acceptance
+    - name: Notarize Release Archive & Assert Acceptance
+      if: inputs.skip_signing != true
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      run: |
+        NOTARY_OUT="$RUNNER_TEMP/notary_output.json"
+
+        if [ -n "$APPLE_API_KEY_BASE64" ] && [ -n "$APPLE_API_KEY_ID" ] && [ -n "$APPLE_API_ISSUER" ]; then
+          echo "Submitting archive for notarization via App Store Connect API Key..."
+          API_KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          echo "$APPLE_API_KEY_BASE64" | base64 --decode > "$API_KEY_PATH"
+
+          xcrun notarytool submit artifacts/ChoghadiyaDemo-macos-arm64.zip \
+            --key "$API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait \
+            --output-format json > "$NOTARY_OUT" || true
+
+          NOTARY_AUTH_ARGS=(--key "$API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER")
+        elif [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+          echo "Submitting archive for notarization via Apple ID and App-Specific Password..."
+          xcrun notarytool submit artifacts/ChoghadiyaDemo-macos-arm64.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait \
+            --output-format json > "$NOTARY_OUT" || true
+
+          NOTARY_AUTH_ARGS=(--apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID")
+        else
+          echo "::error::Notarization credentials missing. Provide either (APPLE_API_KEY_BASE64, APPLE_API_KEY_ID, APPLE_API_ISSUER) or (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID)."
+          exit 1
+        fi
+
+        cat "$NOTARY_OUT"
+        STATUS=$(python3 -c "import json; data=json.load(open('$NOTARY_OUT')); print(data.get('status', ''))" 2>/dev/null || grep -o '"status": *"[^"]*"' "$NOTARY_OUT" | head -1 | awk -F'"' '{print $4}')
+        SUBMISSION_ID=$(python3 -c "import json; data=json.load(open('$NOTARY_OUT')); print(data.get('id', ''))" 2>/dev/null || grep -o '"id": *"[^"]*"' "$NOTARY_OUT" | head -1 | awk -F'"' '{print $4}')
+
+        echo "Notarization Submission ID: $SUBMISSION_ID"
+        echo "Notarization Terminal Status: $STATUS"
+
+        # Assert terminal status is strictly Accepted
+        if [ "$STATUS" != "Accepted" ]; then
+          echo "::error::Notarization was not accepted (terminal status: '$STATUS')."
+          if [ -n "$SUBMISSION_ID" ]; then
+            echo "Fetching notarization rejection log..."
+            xcrun notarytool log "$SUBMISSION_ID" "${NOTARY_AUTH_ARGS[@]}" || true
+          fi
+          exit 1
+        fi
+
+        echo "✅ Notarization successfully accepted by Apple!"
+        rm -f "$RUNNER_TEMP/AuthKey_"*.p8
+
+    # Clean up temporary keychain
+    - name: Clean Up Keychain
+      if: always()
+      run: |
+        KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+        if [ -f "$KEYCHAIN_PATH" ]; then
+          security delete-keychain "$KEYCHAIN_PATH" || true
+        fi
+        rm -f "$RUNNER_TEMP/AuthKey_"*.p8
+
+    # P1: Do not publish when signing is skipped (if: inputs.skip_signing != true)
+    # P1: Enforce --verify-tag with native GitHub CLI to prevent creating tags on default branch
+    # P2: Uses native pre-installed Go GitHub CLI (zero Node runtime)
+    - name: Publish Release & Assets
+      if: inputs.skip_signing != true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ steps.tag_info.outputs.tag }}
+      run: |
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "Release '$TAG' already exists. Uploading signed & notarized assets..."
+          gh release upload "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt --clobber
+        else
+          echo "Creating release '$TAG' and uploading signed & notarized assets..."
+          gh release create "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt --verify-tag --generate-notes
+        fi
+
+    - name: Dry Run Notice
+      if: inputs.skip_signing == true
+      run: |
+        echo "ℹ️ Dry-run test dispatch completed successfully. Executable was tested, built, and packaged without publishing."

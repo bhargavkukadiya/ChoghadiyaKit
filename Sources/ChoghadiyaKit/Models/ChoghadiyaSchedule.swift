@@ -9,6 +9,8 @@ import Foundation
 
 /// The complete computed Choghadiya schedule for a 24-hour astronomical period (sunrise to next sunrise).
 public struct ChoghadiyaSchedule: Equatable, Hashable, Codable, Sendable {
+    // MARK: - Properties
+
     /// The eight daytime Choghadiya slots (sunrise to sunset).
     public let daySlots: [ChoghadiyaSlot]
 
@@ -18,10 +20,29 @@ public struct ChoghadiyaSchedule: Equatable, Hashable, Codable, Sendable {
     /// The local time zone used for this schedule.
     public let timeZone: TimeZone
 
+    // MARK: - Solar Boundaries
+
+    /// The astronomical sunrise timestamp (start time of the first daytime slot).
+    public var sunrise: Date? {
+        daySlots.first?.startTime
+    }
+
+    /// The astronomical sunset timestamp (end time of the last daytime slot / start of nighttime slots).
+    public var sunset: Date? {
+        daySlots.last?.endTime
+    }
+
+    /// The astronomical sunrise timestamp on the following calendar day (end time of the last nighttime slot).
+    public var nextSunrise: Date? {
+        nightSlots.last?.endTime
+    }
+
     /// All 16 slots of the Vedic day in chronological order.
     public var allSlots: [ChoghadiyaSlot] {
         daySlots + nightSlots
     }
+
+    // MARK: - Init
 
     /// Initializes a `ChoghadiyaSchedule`.
     public init(daySlots: [ChoghadiyaSlot], nightSlots: [ChoghadiyaSlot], timeZone: TimeZone) {
@@ -29,6 +50,8 @@ public struct ChoghadiyaSchedule: Equatable, Hashable, Codable, Sendable {
         self.nightSlots = nightSlots
         self.timeZone = timeZone
     }
+
+    // MARK: - Slot Queries
 
     /// Finds the active slot at the given timestamp.
     /// - Parameter date: Timestamp to check; defaults to `Date()`.

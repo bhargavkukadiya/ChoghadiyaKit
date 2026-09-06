@@ -33,7 +33,7 @@ Whether you are developing an iOS companion app, macOS menu bar utility, watchOS
   - [1. Schedule by Location Name](#1-schedule-by-location-name)
   - [2. Schedule by Coordinates (Widgets & CoreLocation)](#2-schedule-by-coordinates-widgets--corelocation)
   - [3. Schedule for a Specific Calendar Date](#3-schedule-for-a-specific-calendar-date)
-  - [4. Querying Active and Upcoming Slots](#4-querying-active-and-upcoming-slots)
+  - [4. Querying Active, Upcoming Slots & Solar Times](#4-querying-active-upcoming-slots--solar-times)
   - [5. Complete SwiftUI Integration](#5-complete-swiftui-integration)
 - [Architecture & Testing](#architecture--testing)
   - [Dependency Injection & Mocking](#dependency-injection--mocking)
@@ -69,7 +69,7 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
 * 📱 **Native SwiftUI Integration:** `ChoghadiyaSlot` conforms to `Identifiable`, `Hashable`, and `Codable` for seamless use in `ForEach`, `Table`, and `TimelineView`.
 * ⚡ **Zero External Dependencies:** Built entirely with standard Apple frameworks (`Foundation`, `CoreLocation`).
 * 🧩 **Clean Architecture:** Fully decoupled protocols (`ChoghadiyaCalculating`, `SunTimesFetching`) allowing easy mock injection for unit and UI testing.
-* 🧪 **100% Tested:** 31 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
+* 🧪 **100% Tested:** 32 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
 
 ---
 
@@ -239,11 +239,17 @@ let scheduleWithCoords = try await manager.getSchedule(
 
 ---
 
-### 4. Querying Active and Upcoming Slots
+### 4. Querying Active, Upcoming Slots & Solar Times
 
 `ChoghadiyaSchedule` provides high-level convenience query APIs:
 
 ```swift
+// Inspect astronomical solar boundaries
+if let sunrise = schedule.sunrise, let sunset = schedule.sunset {
+    print("Sunrise: \(sunrise)")
+    print("Sunset:  \(sunset)")
+}
+
 // Get the slot active right now
 if let current = schedule.currentSlot() {
     print("Now Active: \(current.type.rawValue)")
