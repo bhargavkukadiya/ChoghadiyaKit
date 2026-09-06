@@ -35,7 +35,7 @@ public final class ChoghadiyaCalculator: ChoghadiyaCalculating, Sendable {
     ///   - sunTimes: Validated astronomical solar times.
     /// - Returns: Computed `ChoghadiyaSchedule`.
     public func calculateSchedule(for date: Date, sunTimes: SunTimes) -> ChoghadiyaSchedule {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = sunTimes.timeZone
 
         // Vedic day (Vāra) is determined strictly by sunrise

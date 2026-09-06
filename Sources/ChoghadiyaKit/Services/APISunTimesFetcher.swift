@@ -189,14 +189,6 @@ public final class APISunTimesFetcher: SunTimesFetching, Sendable {
         let sunset: String
     }
 
-    private static func makeDateFormatter(timeZone: TimeZone) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = timeZone
-        return formatter
-    }
-
     private static func fetchSunriseData(
         session: URLSession,
         lat: Double,
