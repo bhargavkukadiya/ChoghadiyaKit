@@ -31,9 +31,13 @@ public struct SunTimes: Equatable, Hashable, Codable, Sendable {
         nextSunrise.timeIntervalSince(sunset)
     }
 
-    /// Validates that astronomical boundaries are chronologically consistent (`sunrise < sunset < nextSunrise`).
+    /// Validates that timestamps and durations are finite and boundaries are chronologically consistent (`sunrise < sunset < nextSunrise`).
     public var isValid: Bool {
-        sunrise < sunset && sunset < nextSunrise
+        sunrise.timeIntervalSinceReferenceDate.isFinite
+            && sunset.timeIntervalSinceReferenceDate.isFinite
+            && nextSunrise.timeIntervalSinceReferenceDate.isFinite
+            && sunrise < sunset && sunset < nextSunrise
+            && daylightDuration.isFinite && nighttimeDuration.isFinite
     }
 
     /// Initializes an astronomical sun times record.

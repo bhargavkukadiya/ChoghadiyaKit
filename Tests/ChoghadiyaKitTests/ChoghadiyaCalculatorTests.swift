@@ -116,6 +116,29 @@ final class ChoghadiyaCalculatorTests: XCTestCase {
         XCTAssertEqual(schedule.nightSlots.map(\.type), expectedNight)
     }
 
+    func testInvalidSolarBoundariesReturnEmptySchedule() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        let boundaries: [(Double, Double, Double)] = [
+            (0, -1, 86400), (0, 0, 86400),
+            (0, 43200, 43200), (0, 43200, 1),
+            (.nan, 43200, 86400), (0, .infinity, 86400),
+            (0, 43200, .infinity)
+        ]
+        for (rise, set, next) in boundaries {
+            let times = SunTimes(
+                sunrise: base.addingTimeInterval(rise),
+                sunset: base.addingTimeInterval(set),
+                nextSunrise: base.addingTimeInterval(next),
+                timeZone: timeZone
+            )
+            XCTAssertFalse(times.isValid)
+            let schedule = calculator.calculateSchedule(for: base, sunTimes: times)
+            XCTAssertTrue(schedule.allSlots.isEmpty)
+            XCTAssertNil(schedule.currentSlot(at: base))
+            XCTAssertEqual(schedule.timeZone, timeZone)
+        }
+    }
+
     func testSlotBoundaries() {
         let sunTimes = makeSunTimes(forWeekday: 1)
         let schedule = calculator.calculateSchedule(for: sunTimes.sunrise, sunTimes: sunTimes)

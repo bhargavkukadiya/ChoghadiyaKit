@@ -90,6 +90,28 @@ final class ChoghadiyaManagerTests: XCTestCase {
         XCTAssertEqual(schedule.nightSlots.count, 8)
     }
 
+    func testInvalidInjectedSolarTimesThrow() async {
+        let fetcher = MockSunTimesFetcher()
+        let now = Date()
+        fetcher.stubbedSunTimes = SunTimes(
+            sunrise: now, sunset: now.addingTimeInterval(-1),
+            nextSunrise: now.addingTimeInterval(86400), timeZone: timeZone
+        )
+        let manager = ChoghadiyaManager(fetcher: fetcher)
+        for useCoordinates in [false, true] {
+            do {
+                if useCoordinates {
+                    _ = try await manager.getSchedule(latitude: 23, longitude: 72, timeZone: timeZone)
+                } else {
+                    _ = try await manager.getSchedule(for: "Ahmedabad")
+                }
+                XCTFail("Expected invalidSunTimes")
+            } catch {
+                XCTAssertEqual(error as? ChoghadiyaError, .invalidSunTimes)
+            }
+        }
+    }
+
     func testErrorPropagation() async {
         let mockFetcher = MockSunTimesFetcher()
         mockFetcher.stubbedError = ChoghadiyaError.locationNotFound

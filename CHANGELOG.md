@@ -11,10 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Astronomical Solar Convenience Accessors (`ChoghadiyaSchedule`):** Added `sunrise`, `sunset`, and `nextSunrise` computed properties to directly inspect solar boundaries without manually indexing `daySlots` or `nightSlots`.
+- **Solar Boundary & IEEE 754 Finiteness Validation (`SunTimes`):** Added `.isFinite` validation for timestamps and durations alongside chronological consistency in `SunTimes.isValid`.
 - **CLI Solar Summary (`ChoghadiyaDemo`):** Formatted sunrise and sunset timestamps now display in the terminal header.
+- **Enhanced Coordinate Formats & CLI Resilience (`ChoghadiyaDemo`):** Added support for comma-separated coordinate syntax with positional time zones (`<lat>,<lon> [<timezone>]`), pre-scan option duplicate detection, option parity enforcement, and structured code organization with `MARK` sections.
+- **CLI Argument Parsing Test Suite (`CLIArgumentTests`):** Added unit test suite covering option flags, duplicate handling, coordinate forms, and error diagnostics.
 
 ### Fixed
 - **Deterministic Weekday Calculation (`ChoghadiyaCalculator`):** Explicitly instantiate `Calendar(identifier: .gregorian)` instead of `Calendar.current` to guarantee deterministic Vedic weekday calculation regardless of user device locale or non-Gregorian calendar preferences (e.g. Buddhist, Islamic, Hebrew, Japanese).
+- **Fail-Fast Error Handling (`ChoghadiyaManager`):** Propagate typed `ChoghadiyaError.invalidSunTimes` when astronomical boundaries are invalid or non-finite.
+- **Defensive Schedule Fallback (`ChoghadiyaCalculator`):** Return a safe empty `ChoghadiyaSchedule` instead of producing corrupted or non-finite intervals when invalid solar data is supplied.
+- **SemVer Pre-Release Support (`release.yml`):** Added automated detection of SemVer pre-release tags (`--prerelease --latest=false`) to the GitHub release workflow.
 
 ### Removed
 - **Unused Helper (`APISunTimesFetcher`):** Removed unused private static `makeDateFormatter(timeZone:)` method.

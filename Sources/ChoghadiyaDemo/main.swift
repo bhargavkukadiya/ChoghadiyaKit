@@ -9,6 +9,8 @@ import Foundation
 import CoreLocation
 import ChoghadiyaKit
 
+// MARK: - Supporting Types
+
 struct DateComponentsInput {
     let year: Int
     let month: Int
@@ -31,6 +33,8 @@ enum CLIError: LocalizedError {
         }
     }
 }
+
+// MARK: - Application Entry Point
 
 @main
 struct ChoghadiyaDemo {
@@ -164,31 +168,32 @@ struct ChoghadiyaDemo {
         }
     }
 
-    private static func resolveDate(components: DateComponentsInput?, in timeZone: TimeZone) -> Date {
-        guard let comps = components else { return Date() }
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = timeZone
-        var dc = DateComponents()
-        dc.year = comps.year
-        dc.month = comps.month
-        dc.day = comps.day
-        dc.hour = 12
-        dc.minute = 0
-        dc.second = 0
-        return cal.date(from: dc) ?? Date()
-    }
+    // MARK: - Argument Parsing
 
-    private static func exitWithDiagnostic(_ message: String, code: Int32) -> Never {
-        let output = "❌ Error: \(message)\n"
-        FileHandle.standardError.write(Data(output.utf8))
-        exit(code)
-    }
-
-    private static func parseArguments() throws -> InputMode {
-        var args = Array(CommandLine.arguments.dropFirst())
+    static func parseArguments(_ arguments: [String] = Array(CommandLine.arguments.dropFirst())) throws -> InputMode {
+        var args = arguments
 
         if args.contains("-h") || args.contains("--help") || args.contains("help") {
             return .help
+        }
+
+        let supportedOptions: Set<String> = ["--date", "--tz", "--lat", "--lon"]
+        var seenOptions: Set<String> = []
+        for argument in args where argument.hasPrefix("-") && Double(argument) == nil {
+            let coordinateParts = argument.split(separator: ",", omittingEmptySubsequences: false)
+            if coordinateParts.count == 2,
+               coordinateParts.allSatisfy({ Double($0.trimmingCharacters(in: .whitespaces)) != nil }) {
+                continue
+            }
+            guard supportedOptions.contains(argument) else {
+                throw CLIError.argumentError("Unknown option '\(argument)'.")
+            }
+            guard seenOptions.insert(argument).inserted else {
+                throw CLIError.argumentError("Duplicate option '\(argument)'.")
+            }
+        }
+        guard seenOptions.contains("--lat") == seenOptions.contains("--lon") else {
+            throw CLIError.argumentError("--lat and --lon must be supplied together.")
         }
 
         // Extract optional --date YYYY-MM-DD
@@ -222,6 +227,9 @@ struct ChoghadiyaDemo {
         }
 
         guard !args.isEmpty else {
+            guard flagTimeZone == nil else {
+                throw CLIError.argumentError("--tz requires coordinates.")
+            }
             return .address("Ahmedabad, India", dateComponents: parsedDateComps)
         }
 
@@ -239,21 +247,45 @@ struct ChoghadiyaDemo {
             guard let lon = Double(args[lonIndex + 1]) else {
                 throw CLIError.argumentError("Invalid longitude value '\(args[lonIndex + 1])'. Expected a decimal number.")
             }
+            guard args.count == 4 else {
+                throw CLIError.argumentError("Unexpected arguments alongside --lat and --lon.")
+            }
             let tz = flagTimeZone ?? .current
             return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
         }
 
-        // Check for comma-separated coordinates: e.g. "23.0225,72.5714"
-        if args.count == 1 && args[0].contains(",") {
+        // Check for comma-separated coordinates: e.g. "23.0225,72.5714" ["Asia/Kolkata"]
+        if args[0].contains(",") {
             let parts = args[0].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
             if parts.count == 2, let lat = Double(parts[0]), let lon = Double(parts[1]) {
-                let tz = flagTimeZone ?? .current
+                guard args.count <= 2 else {
+                    throw CLIError.argumentError("Unexpected arguments after coordinates and time zone.")
+                }
+                guard args.count != 2 || flagTimeZone == nil else {
+                    throw CLIError.argumentError("Supply the time zone either positionally or with --tz, not both.")
+                }
+                let tz: TimeZone
+                if args.count == 2 {
+                    let tzStr = args[1]
+                    guard let parsedTz = TimeZone(identifier: tzStr) else {
+                        throw CLIError.argumentError("Invalid time zone identifier '\(tzStr)'. Expected a valid IANA time zone identifier (e.g. 'America/New_York', 'Asia/Kolkata').")
+                    }
+                    tz = parsedTz
+                } else {
+                    tz = flagTimeZone ?? .current
+                }
                 return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
             }
         }
 
         // Check for space-separated numbers: e.g. "23.0225" "72.5714" ["Asia/Kolkata"]
         if args.count >= 2, let lat = Double(args[0]), let lon = Double(args[1]) {
+            guard args.count <= 3 else {
+                throw CLIError.argumentError("Unexpected arguments after coordinates and time zone.")
+            }
+            guard args.count != 3 || flagTimeZone == nil else {
+                throw CLIError.argumentError("Supply the time zone either positionally or with --tz, not both.")
+            }
             let tz: TimeZone
             if args.count > 2 {
                 let tzStr = args[2]
@@ -268,7 +300,26 @@ struct ChoghadiyaDemo {
         }
 
         // Default: treat remaining args as location string
+        guard flagTimeZone == nil else {
+            throw CLIError.argumentError("--tz requires coordinates.")
+        }
         return .address(args.joined(separator: " "), dateComponents: parsedDateComps)
+    }
+
+    // MARK: - Date & Calendar Helpers
+
+    private static func resolveDate(components: DateComponentsInput?, in timeZone: TimeZone) -> Date {
+        guard let comps = components else { return Date() }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        var dc = DateComponents()
+        dc.year = comps.year
+        dc.month = comps.month
+        dc.day = comps.day
+        dc.hour = 12
+        dc.minute = 0
+        dc.second = 0
+        return cal.date(from: dc) ?? Date()
     }
 
     private static func parseStrictDateString(_ str: String) -> DateComponentsInput? {
@@ -289,6 +340,14 @@ struct ChoghadiyaDemo {
         return DateComponentsInput(year: year, month: month, day: day)
     }
 
+    // MARK: - Diagnostics & Presentation
+
+    private static func exitWithDiagnostic(_ message: String, code: Int32) -> Never {
+        let output = "❌ Error: \(message)\n"
+        FileHandle.standardError.write(Data(output.utf8))
+        exit(code)
+    }
+
     private static func printHelp() {
         print("""
         OVERVIEW: Astronomical Vedic Choghadiya schedule calculator.
@@ -296,6 +355,7 @@ struct ChoghadiyaDemo {
         USAGE:
           swift run ChoghadiyaDemo [<location>] [--date <YYYY-MM-DD>]
           swift run ChoghadiyaDemo <latitude> <longitude> [<timezone>] [--date <YYYY-MM-DD>]
+          swift run ChoghadiyaDemo <latitude>,<longitude> [<timezone>] [--date <YYYY-MM-DD>]
           swift run ChoghadiyaDemo --lat <latitude> --lon <longitude> [--tz <timezone>] [--date <YYYY-MM-DD>]
 
         ARGUMENTS:
@@ -317,6 +377,7 @@ struct ChoghadiyaDemo {
           swift run ChoghadiyaDemo "Ahmedabad, India" --date 2026-10-24
           swift run ChoghadiyaDemo 21.1702 72.8311
           swift run ChoghadiyaDemo 21.1702 72.8311 Asia/Kolkata --date 2026-09-04
+          swift run ChoghadiyaDemo 21.1702,72.8311 Asia/Kolkata
           swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
         """)
     }

@@ -33,8 +33,12 @@ public final class ChoghadiyaCalculator: ChoghadiyaCalculating, Sendable {
     /// - Parameters:
     ///   - date: The reference date (used as fallback or for reference).
     ///   - sunTimes: Validated astronomical solar times.
-    /// - Returns: Computed `ChoghadiyaSchedule`.
+    /// - Returns: Computed `ChoghadiyaSchedule`, or an empty schedule if solar boundaries are invalid.
     public func calculateSchedule(for date: Date, sunTimes: SunTimes) -> ChoghadiyaSchedule {
+        guard sunTimes.isValid else {
+            return ChoghadiyaSchedule(daySlots: [], nightSlots: [], timeZone: sunTimes.timeZone)
+        }
+
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = sunTimes.timeZone
 

@@ -27,6 +27,6 @@ let package = Package(
             dependencies: ["ChoghadiyaKit"]),
         .testTarget(
             name: "ChoghadiyaKitTests",
-            dependencies: ["ChoghadiyaKit"]),
+            dependencies: ["ChoghadiyaKit", "ChoghadiyaDemo"]),
     ]
 )

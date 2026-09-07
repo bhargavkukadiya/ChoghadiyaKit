@@ -69,7 +69,7 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
 * 📱 **Native SwiftUI Integration:** `ChoghadiyaSlot` conforms to `Identifiable`, `Hashable`, and `Codable` for seamless use in `ForEach`, `Table`, and `TimelineView`.
 * ⚡ **Zero External Dependencies:** Built entirely with standard Apple frameworks (`Foundation`, `CoreLocation`).
 * 🧩 **Clean Architecture:** Fully decoupled protocols (`ChoghadiyaCalculating`, `SunTimesFetching`) allowing easy mock injection for unit and UI testing.
-* 🧪 **100% Tested:** 32 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
+* 🧪 **100% Tested:** 37 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
 
 ---
 
@@ -142,6 +142,7 @@ swift run ChoghadiyaDemo "New York, USA"
 
 # Query directly by coordinates (lat, lon, and optional timezone):
 swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata
+swift run ChoghadiyaDemo 23.0225,72.5714 Asia/Kolkata
 swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
 
 # Query specific dates (past, present, or future):
@@ -400,7 +401,8 @@ Tests/ChoghadiyaKitTests/
 ├── ChoghadiyaCalculatorTests.swift # Verification across all 7 weekdays & boundaries
 ├── ChoghadiyaScheduleTests.swift   # Active/next slot queries, Codable & Identifiable
 ├── ChoghadiyaManagerTests.swift    # Mock injection, DIP & coordinate tests
-└── ChoghadiyaTypeTests.swift       # Auspiciousness qualities & ruling Grahas
+├── ChoghadiyaTypeTests.swift       # Auspiciousness qualities & ruling Grahas
+└── CLIArgumentTests.swift          # CLI argument parsing, option flags & coordinate formats
 ```
 
 ### Dependency Injection & Mocking

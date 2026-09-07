@@ -13,6 +13,6 @@ public protocol ChoghadiyaCalculating: Sendable {
     /// - Parameters:
     ///   - date: The reference calendar date.
     ///   - sunTimes: Astronomical sunrise and sunset data.
-    /// - Returns: Computed `ChoghadiyaSchedule`.
+    /// - Returns: Computed `ChoghadiyaSchedule`, or an empty schedule if solar boundaries are invalid.
     func calculateSchedule(for date: Date, sunTimes: SunTimes) -> ChoghadiyaSchedule
 }

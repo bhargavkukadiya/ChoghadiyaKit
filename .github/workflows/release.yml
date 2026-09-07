@@ -245,7 +245,12 @@ jobs:
           gh release upload "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt --clobber
         else
           echo "Creating release '$TAG' and uploading assets..."
-          gh release create "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt --verify-tag --generate-notes
+          RELEASE_ARGS=(--verify-tag --generate-notes)
+          VERSION_WITHOUT_BUILD="${TAG%%+*}"
+          if [[ "$VERSION_WITHOUT_BUILD" == *-* ]]; then
+            RELEASE_ARGS+=(--prerelease --latest=false)
+          fi
+          gh release create "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt "${RELEASE_ARGS[@]}"
         fi
 
     - name: Dry Run Notice

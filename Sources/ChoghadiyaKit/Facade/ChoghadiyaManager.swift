@@ -36,8 +36,10 @@ public final class ChoghadiyaManager: Sendable {
     ///   - location: Location address string (e.g., "Ahmedabad, India").
     ///   - date: Target date; defaults to current date.
     /// - Returns: `ChoghadiyaSchedule` with day and night slots.
+    /// - Throws: `ChoghadiyaError.invalidSunTimes` for invalid solar boundaries; otherwise propagates errors from the configured fetcher.
     public func getSchedule(for location: String, date: Date = Date()) async throws -> ChoghadiyaSchedule {
         let sunTimes = try await fetcher.fetchSunTimes(for: location, date: date)
+        guard sunTimes.isValid else { throw ChoghadiyaError.invalidSunTimes }
         return calculator.calculateSchedule(for: date, sunTimes: sunTimes)
     }
 
@@ -49,6 +51,7 @@ public final class ChoghadiyaManager: Sendable {
     ///   - timeZone: Target time zone.
     ///   - date: Target date; defaults to current date.
     /// - Returns: `ChoghadiyaSchedule` with day and night slots.
+    /// - Throws: `ChoghadiyaError.invalidSunTimes` for invalid solar boundaries; otherwise propagates errors from the configured fetcher.
     public func getSchedule(
         latitude: Double,
         longitude: Double,
@@ -61,6 +64,7 @@ public final class ChoghadiyaManager: Sendable {
             timeZone: timeZone,
             date: date
         )
+        guard sunTimes.isValid else { throw ChoghadiyaError.invalidSunTimes }
         return calculator.calculateSchedule(for: date, sunTimes: sunTimes)
     }
 }
@@ -75,6 +79,7 @@ extension ChoghadiyaManager {
     ///   - timeZone: Target time zone; defaults to `TimeZone.current`.
     ///   - date: Target date; defaults to current date.
     /// - Returns: `ChoghadiyaSchedule` with day and night slots.
+    /// - Throws: `ChoghadiyaError.invalidSunTimes` for invalid solar boundaries; otherwise propagates errors from the configured fetcher.
     public func getSchedule(
         coordinate: CLLocationCoordinate2D,
         timeZone: TimeZone = .current,
