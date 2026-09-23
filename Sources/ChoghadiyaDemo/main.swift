@@ -119,6 +119,7 @@ struct ChoghadiyaDemo {
             if let sunrise = schedule.sunrise, let sunset = schedule.sunset {
                 print("🌅 Sunrise:     \(timeFormatter.string(from: sunrise))")
                 print("🌇 Sunset:      \(timeFormatter.string(from: sunset))\n")
+                print("Solar data: https://sunrise-sunset.org\n")
             } else {
                 print("")
             }

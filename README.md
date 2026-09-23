@@ -21,6 +21,10 @@
 
 Whether you are developing an iOS companion app, macOS menu bar utility, watchOS complication, or WidgetKit timeline, ChoghadiyaKit provides a clean, protocol-oriented API with full `Sendable` concurrency guarantees and first-class SwiftUI bindings.
 
+### Solar-data attribution
+
+The default `APISunTimesFetcher` retrieves solar times from [Sunrise-Sunset.org](https://sunrise-sunset.org). The API is free for reasonable request volumes and requires a visible link to Sunrise-Sunset.org wherever its data is displayed. Apps using the default fetcher should show that attribution in their UI; if you provide a custom `SunTimesFetching` implementation, follow the data provider's attribution terms.
+
 ---
 
 ## Table of Contents
