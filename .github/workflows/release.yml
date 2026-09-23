@@ -129,11 +129,21 @@ jobs:
           echo "has_developer_id=false" >> $GITHUB_OUTPUT
         fi
 
+    - name: Verify Release Binary
+      run: |
+        ARCHS=$(lipo -archs .build/release/ChoghadiyaDemo)
+        if [[ " $ARCHS " != *" arm64 "* ]]; then
+          echo "::error::Expected an Apple Silicon arm64 executable, found: $ARCHS"
+          exit 1
+        fi
+        .build/release/ChoghadiyaDemo --help >/dev/null
+
     # Package archive
     - name: Package Release Assets
       run: |
         mkdir -p staging artifacts
         cp .build/release/ChoghadiyaDemo staging/
+        cp .build/release/ChoghadiyaDemo artifacts/ChoghadiyaDemo-macos-arm64
         cp LICENSE staging/
         cat << 'EOF' > staging/README.txt
         ChoghadiyaDemo (macOS Apple Silicon)
@@ -152,7 +162,8 @@ jobs:
           choghadiya --help
 
         macOS Gatekeeper Note:
-          If macOS displays a security warning when opening binaries downloaded from the internet:
+          Developer ID releases are notarized and should open without removing quarantine.
+          Ad-hoc signed releases may show a Gatekeeper warning. Only if you trust the binary:
             xattr -d com.apple.quarantine ChoghadiyaDemo
             chmod +x ChoghadiyaDemo
         EOF
@@ -160,11 +171,11 @@ jobs:
         cd staging
         zip -9 -X ../artifacts/ChoghadiyaDemo-macos-arm64.zip ChoghadiyaDemo LICENSE README.txt
         cd ../artifacts
-        shasum -a 256 ChoghadiyaDemo-macos-arm64.zip > checksums.txt
+        shasum -a 256 ChoghadiyaDemo-macos-arm64 ChoghadiyaDemo-macos-arm64.zip > checksums.txt
 
-    # Notarize archive with Apple notarytool (only if signed with Developer ID)
+    # Notarize only published releases; dry runs must not submit to Apple's notarization service.
     - name: Notarize Release Archive & Assert Acceptance
-      if: steps.codesign.outputs.has_developer_id == 'true'
+      if: steps.codesign.outputs.has_developer_id == 'true' && inputs.dry_run != true
       env:
         APPLE_ID: ${{ secrets.APPLE_ID }}
         APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -240,20 +251,43 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ steps.tag_info.outputs.tag }}
       run: |
+        VERSION_WITHOUT_BUILD="${TAG%%+*}"
+        IS_PRERELEASE=false
+        MAKE_LATEST=legacy
+        if [[ "$VERSION_WITHOUT_BUILD" == *-* ]]; then
+          IS_PRERELEASE=true
+          MAKE_LATEST=false
+        fi
+
         if gh release view "$TAG" >/dev/null 2>&1; then
-          echo "Release '$TAG' already exists. Uploading assets..."
-          gh release upload "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt --clobber
+          echo "Release '$TAG' already exists. Updating assets and release metadata..."
+          gh release upload "$TAG" \
+            artifacts/ChoghadiyaDemo-macos-arm64 \
+            artifacts/ChoghadiyaDemo-macos-arm64.zip \
+            artifacts/checksums.txt \
+            --clobber
         else
           echo "Creating release '$TAG' and uploading assets..."
           RELEASE_ARGS=(--verify-tag --generate-notes)
-          VERSION_WITHOUT_BUILD="${TAG%%+*}"
-          if [[ "$VERSION_WITHOUT_BUILD" == *-* ]]; then
+          if [[ "$IS_PRERELEASE" == true ]]; then
             RELEASE_ARGS+=(--prerelease --latest=false)
           fi
-          gh release create "$TAG" artifacts/ChoghadiyaDemo-macos-arm64.zip artifacts/checksums.txt "${RELEASE_ARGS[@]}"
+          gh release create "$TAG" \
+            artifacts/ChoghadiyaDemo-macos-arm64 \
+            artifacts/ChoghadiyaDemo-macos-arm64.zip \
+            artifacts/checksums.txt \
+            "${RELEASE_ARGS[@]}"
         fi
+
+        # Reconcile draft/prerelease/latest metadata on retries and manually-created releases too.
+        RELEASE_ID=$(gh release view "$TAG" --json databaseId --jq .databaseId)
+        gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+          --method PATCH \
+          -F draft=false \
+          -F prerelease="$IS_PRERELEASE" \
+          -f make_latest="$MAKE_LATEST" >/dev/null
 
     - name: Dry Run Notice
       if: inputs.dry_run == true
       run: |
-        echo "ℹ️ Dry-run test dispatch completed successfully. Executable was tested, built, and packaged without publishing."
+        echo "ℹ️ Dry-run test dispatch completed successfully. The Apple Silicon executable and ZIP were built and checksummed without notarization or GitHub release publishing."

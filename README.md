@@ -153,6 +153,17 @@ swift run ChoghadiyaDemo 21.1702 72.8311 --date 2026-09-04
 swift run ChoghadiyaDemo --help
 ```
 
+### Precompiled macOS Apple Silicon Binary
+
+GitHub releases include the standalone `ChoghadiyaDemo-macos-arm64` executable and a ZIP containing the executable, license, and quick-start instructions. Download them from the [latest release](https://github.com/bhargavkukadiya/ChoghadiyaKit/releases/latest). After downloading the standalone executable, make it runnable with:
+
+```bash
+chmod +x ChoghadiyaDemo-macos-arm64
+./ChoghadiyaDemo-macos-arm64 --help
+```
+
+If Gatekeeper warns on an ad-hoc signed release, see `README.txt` in the ZIP for the corresponding guidance.
+
 ---
 
 ### 1. Schedule by Location Name
