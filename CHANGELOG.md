@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-09-23
+
+### Added
+- **Precompiled macOS Apple Silicon CLI Release Asset:** Publish the standalone `ChoghadiyaDemo-macos-arm64` executable alongside the ZIP, with SHA-256 checksums for both assets.
+- **Release Binary Verification:** Check the optimized executable's `arm64` architecture and run its help command before packaging.
+
+### Changed
+- **Release Workflow Retry Handling:** Reconcile draft, prerelease, and latest-release metadata when creating or updating a release.
+- **Dry Runs:** Skip Apple notarization as well as GitHub release publishing.
+- **Installation Guidance:** Document downloading and running the precompiled CLI binary, and construct example dates using the destination's Gregorian calendar and time zone.
+
+### Fixed
+- **Malformed CLI Coordinates:** Reject comma-separated numeric coordinate inputs with missing fields instead of silently dropping them.
+
+---
+
 ## [1.0.1] - 2026-09-06
 
 ### Added
