@@ -214,16 +214,22 @@ Compute historical or future Choghadiya schedules with dynamic solar sunrise and
 
 ```swift
 import Foundation
+import CoreLocation
 import ChoghadiyaKit
 
 let manager = ChoghadiyaManager()
+
+// The date is interpreted in the destination's Gregorian calendar and time zone.
+let destinationTimeZone = TimeZone(identifier: "Asia/Kolkata")!
+var gregorianCalendar = Calendar(identifier: .gregorian)
+gregorianCalendar.timeZone = destinationTimeZone
 
 // Any past, present, or future Date (e.g., Diwali — October 24, 2026):
 var components = DateComponents()
 components.year = 2026
 components.month = 10
 components.day = 24
-let targetDate = Calendar.current.date(from: components)!
+let targetDate = gregorianCalendar.date(from: components)!
 
 // By location name:
 let schedule = try await manager.getSchedule(
@@ -233,7 +239,8 @@ let schedule = try await manager.getSchedule(
 
 // Or by coordinates:
 let scheduleWithCoords = try await manager.getSchedule(
-    coordinate: location.coordinate,
+    coordinate: CLLocationCoordinate2D(latitude: 23.0225, longitude: 72.5714),
+    timeZone: destinationTimeZone,
     date: targetDate
 )
 ```

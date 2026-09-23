@@ -20,6 +20,9 @@ final class CLIArgumentTests: XCTestCase {
             ["23,72", "Asia/Kolkata", "extra"],
             ["23,72", "Asia/Kolkata", "--tz", "UTC"],
             ["23,72", "Invalid/Timezone"],
+            ["23,,72"],
+            [",23,72"],
+            ["23,72,"],
             ["London", "--tz", "UTC"],
             ["--tz", "UTC"]
         ]

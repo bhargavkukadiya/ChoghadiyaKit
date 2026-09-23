@@ -256,7 +256,9 @@ struct ChoghadiyaDemo {
 
         // Check for comma-separated coordinates: e.g. "23.0225,72.5714" ["Asia/Kolkata"]
         if args[0].contains(",") {
-            let parts = args[0].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            let parts = args[0]
+                .split(separator: ",", omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
             if parts.count == 2, let lat = Double(parts[0]), let lon = Double(parts[1]) {
                 guard args.count <= 2 else {
                     throw CLIError.argumentError("Unexpected arguments after coordinates and time zone.")
@@ -275,6 +277,12 @@ struct ChoghadiyaDemo {
                     tz = flagTimeZone ?? .current
                 }
                 return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
+            }
+
+            // Preserve ordinary comma-separated addresses, but reject malformed numeric coordinate lists
+            // instead of silently treating them as addresses or dropping empty coordinate fields.
+            if parts.allSatisfy({ $0.isEmpty || Double($0) != nil }) {
+                throw CLIError.argumentError("Invalid comma-separated coordinates '\(args[0])'. Expected <latitude>,<longitude>.")
             }
         }
 
