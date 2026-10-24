@@ -73,7 +73,7 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
 * 📱 **Native SwiftUI Integration:** `ChoghadiyaSlot` conforms to `Identifiable`, `Hashable`, and `Codable` for seamless use in `ForEach`, `Table`, and `TimelineView`.
 * ⚡ **Zero External Dependencies:** Built entirely with standard Apple frameworks (`Foundation`, `CoreLocation`).
 * 🧩 **Clean Architecture:** Fully decoupled protocols (`ChoghadiyaCalculating`, `SunTimesFetching`) allowing easy mock injection for unit and UI testing.
-* 🧪 **100% Tested:** 37 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
+* 🧪 **100% Tested:** 44 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
 
 ---
 
@@ -144,7 +144,7 @@ swift run ChoghadiyaDemo
 swift run ChoghadiyaDemo "London, UK"
 swift run ChoghadiyaDemo "New York, USA"
 
-# Query directly by coordinates (lat, lon, and optional timezone):
+# Query directly by coordinates (lat, lon, and optional timezone; when omitted it is looked up from the coordinates):
 swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata
 swift run ChoghadiyaDemo 23.0225,72.5714 Asia/Kolkata
 swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
@@ -205,6 +205,8 @@ import ChoghadiyaKit
 let manager = ChoghadiyaManager()
 
 // Option A: Using CLLocationCoordinate2D directly
+// `timeZone` must be the coordinate's own time zone: it decides the calendar day and Vedic weekday.
+// `.current` is only correct when the coordinate is in the device's time zone.
 let coordinate = location.coordinate // CLLocationCoordinate2D
 let schedule = try await manager.getSchedule(coordinate: coordinate, timeZone: .current)
 
@@ -220,6 +222,8 @@ let schedule = try await manager.getSchedule(
     date: Date()
 )
 ```
+
+A time zone that would put sunrise on a different weekday than the location's longitude implies throws `ChoghadiyaError.timeZoneMismatch` (zones that lie across the date line from their calendar day, such as Kiribati and Samoa, are accepted for coordinates inside their own territory). Locations where the sun does not rise or set on the requested date throw `ChoghadiyaError.polarDayOrNight`.
 
 ---
 

@@ -48,7 +48,7 @@ public final class ChoghadiyaManager: Sendable {
     /// - Parameters:
     ///   - latitude: Geographic latitude.
     ///   - longitude: Geographic longitude.
-    ///   - timeZone: Target time zone.
+    ///   - timeZone: The location's own time zone; it determines the target calendar day and the Vedic weekday.
     ///   - date: Target date; defaults to current date.
     /// - Returns: `ChoghadiyaSchedule` with day and night slots.
     /// - Throws: `ChoghadiyaError.invalidSunTimes` for invalid solar boundaries; otherwise propagates errors from the configured fetcher.
@@ -76,7 +76,8 @@ extension ChoghadiyaManager {
     /// Computes the Choghadiya schedule using a `CLLocationCoordinate2D` coordinate and time zone.
     /// - Parameters:
     ///   - coordinate: Geographic coordinate (`CLLocationCoordinate2D`).
-    ///   - timeZone: Target time zone; defaults to `TimeZone.current`.
+    ///   - timeZone: The coordinate's own time zone; defaults to `TimeZone.current`, which is only correct
+    ///     when the coordinate is in the device's time zone.
     ///   - date: Target date; defaults to current date.
     /// - Returns: `ChoghadiyaSchedule` with day and night slots.
     /// - Throws: `ChoghadiyaError.invalidSunTimes` for invalid solar boundaries; otherwise propagates errors from the configured fetcher.

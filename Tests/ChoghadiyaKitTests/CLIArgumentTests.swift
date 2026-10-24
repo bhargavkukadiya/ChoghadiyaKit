@@ -24,7 +24,14 @@ final class CLIArgumentTests: XCTestCase {
             [",23,72"],
             ["23,72,"],
             ["London", "--tz", "UTC"],
-            ["--tz", "UTC"]
+            ["--tz", "UTC"],
+            ["23", "72", "UTC", "--date", "2026--10-24"],
+            ["23", "72", "UTC", "--date", "2026-10-24-"],
+            ["23", "72", "UTC", "--date", "2026-+1-24"],
+            ["23", "72", "UTC", "--date", "+202-10-24"],
+            ["23", "72", "UTC", "--date", "2026-1-24"],
+            ["23", "72", "UTC", "--date", "2026-02-30"],
+            ["23", "72", "UTC", "--date", "２０２６-10-24"]
         ]
         for arguments in invalidInputs {
             XCTAssertThrowsError(try ChoghadiyaDemo.parseArguments(arguments), "\(arguments)")
@@ -45,10 +52,19 @@ final class CLIArgumentTests: XCTestCase {
             }
             XCTAssertEqual(latitude, -23)
             XCTAssertEqual(longitude, -72)
-            XCTAssertEqual(zone.secondsFromGMT(), 0)
+            XCTAssertEqual(zone?.secondsFromGMT(), 0)
             XCTAssertEqual(date?.year, 2026)
             XCTAssertEqual(date?.month, 10)
             XCTAssertEqual(date?.day, 24)
+        }
+    }
+
+    func testCoordinatesWithoutTimeZoneLeaveItToBeResolved() throws {
+        for arguments in [["--lat", "21.3", "--lon", "-157.8"], ["21.3", "-157.8"], ["21.3,-157.8"]] {
+            guard case .coordinates(_, _, let zone, _) = try ChoghadiyaDemo.parseArguments(arguments) else {
+                return XCTFail("Expected coordinate input for \(arguments)")
+            }
+            XCTAssertNil(zone, "\(arguments) must not fall back to the system time zone")
         }
     }
 

@@ -20,7 +20,7 @@ public protocol SunTimesFetching: Sendable {
     /// - Parameters:
     ///   - latitude: Geographic latitude.
     ///   - longitude: Geographic longitude.
-    ///   - timeZone: Target time zone.
+    ///   - timeZone: The location's own time zone; it determines the target calendar day and the Vedic weekday.
     ///   - date: Target calendar date.
     /// - Returns: `SunTimes` containing sunrise, sunset, and next sunrise.
     func fetchSunTimes(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date) async throws -> SunTimes
@@ -31,6 +31,8 @@ import CoreLocation
 
 extension SunTimesFetching {
     /// Fetches astronomical solar times using a `CLLocationCoordinate2D` coordinate.
+    /// - Note: `timeZone` must be the coordinate's own time zone. The `.current` default is only correct
+    ///   when the coordinate is in the device's time zone.
     public func fetchSunTimes(
         coordinate: CLLocationCoordinate2D,
         timeZone: TimeZone = .current,

@@ -16,6 +16,9 @@ public enum ChoghadiyaError: LocalizedError, Sendable, Equatable {
     case invalidResponse
     case parsingError
     case invalidSunTimes
+    case timeZoneUnavailable
+    case timeZoneMismatch
+    case polarDayOrNight
 
     public var errorDescription: String? {
         switch self {
@@ -33,6 +36,12 @@ public enum ChoghadiyaError: LocalizedError, Sendable, Equatable {
             return "Failed to parse the astronomical data from the server."
         case .invalidSunTimes:
             return "Astronomical sunrise and sunset times are inconsistent."
+        case .timeZoneUnavailable:
+            return "Could not determine the time zone of the specified location."
+        case .timeZoneMismatch:
+            return "The supplied time zone does not match the location; it would assign sunrise to a different weekday. Use the location's own time zone."
+        case .polarDayOrNight:
+            return "The sun does not rise or set at this location on the requested date (polar day or polar night)."
         }
     }
 }

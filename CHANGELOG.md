@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **New `ChoghadiyaError` cases:** `timeZoneUnavailable`, `timeZoneMismatch`, and `polarDayOrNight`. Exhaustive `switch` statements over `ChoghadiyaError` need to handle them.
+- **CLI Time Zone Lookup:** Coordinates given without a time zone now use the coordinates' own time zone (looked up by reverse geocoding) instead of the system time zone.
+- **CLI Attribution:** Show the Sunrise-Sunset.org data link in the CLI output.
+
+### Fixed
+- **Wrong Vedic Weekday for Mismatched Time Zones (`APISunTimesFetcher`):** Reject a time zone that would put sunrise on a different weekday than the location's longitude implies (for example Honolulu with `Asia/Tokyo`), instead of silently returning the next weekday's schedule. Date-line zones such as Kiribati, Samoa, and Tonga are accepted only for coordinates inside their own territory.
+- **Silent Time Zone Fallback:** Geocoded locations without a time zone now throw `timeZoneUnavailable` instead of using the device's time zone, in both the library and the CLI.
+- **Polar Day / Night:** Detect the API's Unix-epoch placeholder times and throw `polarDayOrNight`, instead of re-querying a date decades away and reporting inconsistent sun times.
+- **CLI Date Parsing:** Reject malformed `--date` values such as `2026--10-24`, `2026-10-24-`, and `2026-+1-24`.
+
+---
+
 ## [1.0.2] - 2026-09-23
 
 ### Added

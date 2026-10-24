@@ -18,7 +18,8 @@ struct DateComponentsInput {
 }
 
 enum InputMode {
-    case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone, dateComponents: DateComponentsInput?)
+    /// A `nil` time zone is resolved from the coordinates by reverse geocoding.
+    case coordinates(latitude: Double, longitude: Double, timeZone: TimeZone?, dateComponents: DateComponentsInput?)
     case address(String, dateComponents: DateComponentsInput?)
     case help
 }
@@ -61,8 +62,14 @@ struct ChoghadiyaDemo {
             let schedule: ChoghadiyaSchedule
 
             switch input {
-            case .coordinates(let lat, let lon, let tz, let dateComps):
+            case .coordinates(let lat, let lon, let flagTimeZone, let dateComps):
                 print("📍 Coordinates: \(lat), \(lon)")
+                let tz: TimeZone
+                if let flagTimeZone {
+                    tz = flagTimeZone
+                } else {
+                    tz = try await resolveTimeZone(latitude: lat, longitude: lon)
+                }
                 print("🌐 Time Zone:   \(tz.identifier)")
                 print("⏳ Computing directly from coordinates (no geocoding)...\n")
 
@@ -85,7 +92,9 @@ struct ChoghadiyaDemo {
                     guard let placemark = placemarks.first, let loc = placemark.location else {
                         throw ChoghadiyaError.locationNotFound
                     }
-                    let tz = placemark.timeZone ?? .current
+                    guard let tz = placemark.timeZone else {
+                        throw ChoghadiyaError.timeZoneUnavailable
+                    }
                     let targetDate = resolveDate(components: dateComps, in: tz)
                     schedule = try await manager.getSchedule(
                         latitude: loc.coordinate.latitude,
@@ -251,8 +260,7 @@ struct ChoghadiyaDemo {
             guard args.count == 4 else {
                 throw CLIError.argumentError("Unexpected arguments alongside --lat and --lon.")
             }
-            let tz = flagTimeZone ?? .current
-            return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
+            return .coordinates(latitude: lat, longitude: lon, timeZone: flagTimeZone, dateComponents: parsedDateComps)
         }
 
         // Check for comma-separated coordinates: e.g. "23.0225,72.5714" ["Asia/Kolkata"]
@@ -267,7 +275,7 @@ struct ChoghadiyaDemo {
                 guard args.count != 2 || flagTimeZone == nil else {
                     throw CLIError.argumentError("Supply the time zone either positionally or with --tz, not both.")
                 }
-                let tz: TimeZone
+                let tz: TimeZone?
                 if args.count == 2 {
                     let tzStr = args[1]
                     guard let parsedTz = TimeZone(identifier: tzStr) else {
@@ -275,7 +283,7 @@ struct ChoghadiyaDemo {
                     }
                     tz = parsedTz
                 } else {
-                    tz = flagTimeZone ?? .current
+                    tz = flagTimeZone
                 }
                 return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
             }
@@ -295,7 +303,7 @@ struct ChoghadiyaDemo {
             guard args.count != 3 || flagTimeZone == nil else {
                 throw CLIError.argumentError("Supply the time zone either positionally or with --tz, not both.")
             }
-            let tz: TimeZone
+            let tz: TimeZone?
             if args.count > 2 {
                 let tzStr = args[2]
                 guard let parsedTz = TimeZone(identifier: tzStr) else {
@@ -303,7 +311,7 @@ struct ChoghadiyaDemo {
                 }
                 tz = parsedTz
             } else {
-                tz = flagTimeZone ?? .current
+                tz = flagTimeZone
             }
             return .coordinates(latitude: lat, longitude: lon, timeZone: tz, dateComponents: parsedDateComps)
         }
@@ -332,8 +340,9 @@ struct ChoghadiyaDemo {
     }
 
     private static func parseStrictDateString(_ str: String) -> DateComponentsInput? {
-        let parts = str.split(separator: "-")
+        let parts = str.split(separator: "-", omittingEmptySubsequences: false)
         guard parts.count == 3,
+              parts.allSatisfy({ $0.allSatisfy { $0.isASCII && $0.isNumber } }),
               let year = Int(parts[0]), parts[0].count == 4,
               let month = Int(parts[1]), parts[1].count == 2, (1...12).contains(month),
               let day = Int(parts[2]), parts[2].count == 2, (1...31).contains(day) else {
@@ -347,6 +356,22 @@ struct ChoghadiyaDemo {
             return nil
         }
         return DateComponentsInput(year: year, month: month, day: day)
+    }
+
+    // MARK: - Location Helpers
+
+    /// Resolves the coordinates' own time zone so the Vedic weekday follows the location's calendar day.
+    private static func resolveTimeZone(latitude: Double, longitude: Double) async throws -> TimeZone {
+        let placemarks: [CLPlacemark]
+        do {
+            placemarks = try await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: latitude, longitude: longitude))
+        } catch {
+            throw ChoghadiyaError.geocodingFailed("\(error.localizedDescription) Supply a time zone with --tz.")
+        }
+        guard let timeZone = placemarks.first?.timeZone else {
+            throw ChoghadiyaError.timeZoneUnavailable
+        }
+        return timeZone
     }
 
     // MARK: - Diagnostics & Presentation
@@ -371,13 +396,13 @@ struct ChoghadiyaDemo {
           <location>           City or location name (default: "Ahmedabad, India")
           <latitude>           Geographic latitude decimal (e.g. 21.1702)
           <longitude>          Geographic longitude decimal (e.g. 72.8311)
-          <timezone>           Optional IANA time zone identifier (e.g. "Asia/Kolkata")
+          <timezone>           Optional IANA time zone of the coordinates (e.g. "Asia/Kolkata")
 
         OPTIONS:
           --date <YYYY-MM-DD>  Compute schedule for a specific date (default: today)
           --lat <latitude>     Geographic latitude decimal
           --lon <longitude>    Geographic longitude decimal
-          --tz <timezone>      Target IANA time zone (default: system time zone)
+          --tz <timezone>      IANA time zone of the coordinates (default: looked up from the coordinates)
           -h, --help           Show this help information
 
         EXAMPLES:
