@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Documentation:** Document that coordinate-based calls need the location's own time zone and the new errors; note that `currentSlot()` is `nil` between midnight and sunrise on that date's schedule; replace the static CI badge with the live workflow badge; correct the Diwali 2026 example date, the test count, and a README snippet that redeclared `schedule`.
+- **Security Reporting (`SECURITY.md`):** Report vulnerabilities through GitHub private vulnerability reporting ([open a draft security advisory](https://github.com/bhargavkukadiya/ChoghadiyaKit/security/advisories/new)) instead of the maintainer's GitHub `noreply` address, which does not receive email.
 
 ---
 
