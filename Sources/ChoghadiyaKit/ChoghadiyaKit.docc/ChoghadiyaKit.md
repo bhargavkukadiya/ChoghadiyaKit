@@ -22,6 +22,11 @@ if let current = schedule.currentSlot() {
 }
 ```
 
+A schedule covers its date's sunrise to the next sunrise. Between midnight and sunrise, ``ChoghadiyaSchedule/currentSlot(at:)`` on today's schedule returns `nil`; the active slot belongs to the previous date's schedule.
+
+### Time Zones
+When computing by coordinates, pass the location's own time zone: it decides the calendar day and the Vedic weekday. ``APISunTimesFetcher`` throws ``ChoghadiyaError/timeZoneMismatch`` for a time zone that would put sunrise on a different weekday, and ``ChoghadiyaError/polarDayOrNight`` where the sun does not rise or set on the requested date.
+
 ## Topics
 
 ### Core Facade & Orchestration

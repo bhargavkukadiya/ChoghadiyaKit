@@ -31,7 +31,7 @@ public final class ChoghadiyaCalculator: ChoghadiyaCalculating, Sendable {
 
     /// Computes the complete 16-slot Choghadiya schedule for the given reference date and astronomical solar times.
     /// - Parameters:
-    ///   - date: The reference date (used as fallback or for reference).
+    ///   - date: The reference date. Not used by this calculator: the Vedic weekday comes from `sunTimes.sunrise`.
     ///   - sunTimes: Validated astronomical solar times.
     /// - Returns: Computed `ChoghadiyaSchedule`, or an empty schedule if solar boundaries are invalid.
     public func calculateSchedule(for date: Date, sunTimes: SunTimes) -> ChoghadiyaSchedule {

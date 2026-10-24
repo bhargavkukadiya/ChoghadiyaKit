@@ -8,7 +8,7 @@
     <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9%20%7C%206.0-F05138.svg?style=flat-square&logo=swift" alt="Swift 5.9 | 6.0"></a>
     <a href="https://developer.apple.com"><img src="https://img.shields.io/badge/Platforms-iOS%2015+%20%7C%20macOS%2012+%20%7C%20watchOS%208+%20%7C%20tvOS%2015+-007AFF.svg?style=flat-square&logo=apple" alt="Platforms"></a>
     <a href="https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race/"><img src="https://img.shields.io/badge/Swift%206-Strict%20Concurrency%20Safe-34C759.svg?style=flat-square" alt="Swift 6 Strict Concurrency"></a>
-    <a href="https://github.com/bhargavkukadiya/ChoghadiyaKit/actions"><img src="https://img.shields.io/badge/CI-Passing-brightgreen.svg?style=flat-square" alt="CI Status"></a>
+    <a href="https://github.com/bhargavkukadiya/ChoghadiyaKit/actions/workflows/swift.yml"><img src="https://github.com/bhargavkukadiya/ChoghadiyaKit/actions/workflows/swift.yml/badge.svg?branch=main" alt="CI Status"></a>
     <a href="https://github.com/bhargavkukadiya/ChoghadiyaKit/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-black.svg?style=flat-square" alt="License: MIT"></a>
   </p>
 </p>
@@ -68,12 +68,12 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
 
 ## Key Features
 
-* ☀️ **Astronomical Solar Derivation:** Computes exact slot boundaries dynamically adjusted to local sunrise, sunset, and twilight parameters.
+* ☀️ **Astronomical Solar Derivation:** Computes exact slot boundaries from local sunrise, sunset, and next sunrise.
 * 🛡️ **Swift 6 Strict Concurrency:** Every model, protocol, and facade strictly conforms to `Sendable`. Zero compiler warnings with `-strict-concurrency=complete`.
 * 📱 **Native SwiftUI Integration:** `ChoghadiyaSlot` conforms to `Identifiable`, `Hashable`, and `Codable` for seamless use in `ForEach`, `Table`, and `TimelineView`.
 * ⚡ **Zero External Dependencies:** Built entirely with standard Apple frameworks (`Foundation`, `CoreLocation`).
 * 🧩 **Clean Architecture:** Fully decoupled protocols (`ChoghadiyaCalculating`, `SunTimesFetching`) allowing easy mock injection for unit and UI testing.
-* 🧪 **100% Tested:** 44 comprehensive unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, and boundary edge cases.
+* 🧪 **Tested:** 46 unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, time zone and date line validation, polar day/night, CLI parsing, and boundary edge cases.
 
 ---
 
@@ -208,7 +208,7 @@ let manager = ChoghadiyaManager()
 // `timeZone` must be the coordinate's own time zone: it decides the calendar day and Vedic weekday.
 // `.current` is only correct when the coordinate is in the device's time zone.
 let coordinate = location.coordinate // CLLocationCoordinate2D
-let schedule = try await manager.getSchedule(coordinate: coordinate, timeZone: .current)
+let scheduleFromCoordinate = try await manager.getSchedule(coordinate: coordinate, timeZone: .current)
 
 // Option B: Using explicit latitude and longitude values
 let latitude = 23.0225
@@ -223,7 +223,7 @@ let schedule = try await manager.getSchedule(
 )
 ```
 
-A time zone that would put sunrise on a different weekday than the location's longitude implies throws `ChoghadiyaError.timeZoneMismatch` (zones that lie across the date line from their calendar day, such as Kiribati and Samoa, are accepted for coordinates inside their own territory). Locations where the sun does not rise or set on the requested date throw `ChoghadiyaError.polarDayOrNight`.
+A time zone that would put sunrise on a different weekday than the location's longitude implies throws `ChoghadiyaError.timeZoneMismatch` (zones that lie across the date line from their calendar day, such as Kiribati and Samoa, are accepted for coordinates inside their own territory). Locations where the sun does not rise or set on the requested date throw `ChoghadiyaError.polarDayOrNight`, and address lookups whose result has no time zone throw `ChoghadiyaError.timeZoneUnavailable`.
 
 ---
 
@@ -243,11 +243,11 @@ let destinationTimeZone = TimeZone(identifier: "Asia/Kolkata")!
 var gregorianCalendar = Calendar(identifier: .gregorian)
 gregorianCalendar.timeZone = destinationTimeZone
 
-// Any past, present, or future Date (e.g., Diwali — October 24, 2026):
+// Any past, present, or future Date (e.g., Diwali — November 8, 2026):
 var components = DateComponents()
 components.year = 2026
-components.month = 10
-components.day = 24
+components.month = 11
+components.day = 8
 let targetDate = gregorianCalendar.date(from: components)!
 
 // By location name:
@@ -277,7 +277,9 @@ if let sunrise = schedule.sunrise, let sunset = schedule.sunset {
     print("Sunset:  \(sunset)")
 }
 
-// Get the slot active right now
+// Get the slot active right now.
+// A schedule runs from its date's sunrise to the next sunrise, so between midnight and sunrise
+// today's schedule returns nil; the active slot then belongs to the previous date's schedule.
 if let current = schedule.currentSlot() {
     print("Now Active: \(current.type.rawValue)")
     print("Is Auspicious: \(current.type.isAuspicious)")

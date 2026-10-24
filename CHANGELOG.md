@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Polar Day / Night:** Detect the API's Unix-epoch placeholder times and throw `polarDayOrNight`, instead of re-querying a date decades away and reporting inconsistent sun times.
 - **CLI Date Parsing:** Reject malformed `--date` values such as `2026--10-24`, `2026-10-24-`, and `2026-+1-24`.
 
+### Changed
+- **Documentation:** Document that coordinate-based calls need the location's own time zone and the new errors; note that `currentSlot()` is `nil` between midnight and sunrise on that date's schedule; replace the static CI badge with the live workflow badge; correct the Diwali 2026 example date, the test count, and a README snippet that redeclared `schedule`.
+
 ---
 
 ## [1.0.2] - 2026-09-23
