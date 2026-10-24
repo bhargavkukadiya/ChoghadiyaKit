@@ -105,10 +105,10 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
    ```
    https://github.com/bhargavkukadiya/ChoghadiyaKit.git
    ```
-4. Set the dependency rule to **Up to Next Major Version** starting at `1.0.2`.
-
-> **Unreleased APIs:** The offline solar engine (`NOAASunTimesCalculator`), Rahu Kaal / Yamagandam / Gulika Kaal (`VedicPeriodCalculator`, `ChoghadiyaSchedule.vedicPeriods`), and the `timeZoneUnavailable`, `timeZoneMismatch`, and `polarDayOrNight` errors are on `main` but not yet in a tagged release; `1.0.2` does not include them. To use them before the next release, depend on the `main` branch (`.package(url: "https://github.com/bhargavkukadiya/ChoghadiyaKit.git", branch: "main")`).
+4. Set the dependency rule to **Up to Next Major Version** starting at `1.1.0`.
 5. Click **Add Package**.
+
+> **Available since 1.1.0:** The offline solar engine (`NOAASunTimesCalculator`), Rahu Kaal / Yamagandam / Gulika Kaal (`VedicPeriodCalculator`, `ChoghadiyaSchedule.vedicPeriods`), and the `timeZoneUnavailable`, `timeZoneMismatch`, and `polarDayOrNight` errors require `1.1.0` or later. When upgrading from `1.0.x`, add these error cases to exhaustive `switch` statements over `ChoghadiyaError`.
 
 #### Via `Package.swift`
 Add the dependency to your `Package.swift` manifest:
@@ -121,7 +121,7 @@ let package = Package(
     name: "MyApplication",
     platforms: [.iOS(.v15), .macOS(.v12)],
     dependencies: [
-        .package(url: "https://github.com/bhargavkukadiya/ChoghadiyaKit.git", from: "1.0.2")
+        .package(url: "https://github.com/bhargavkukadiya/ChoghadiyaKit.git", from: "1.1.0")
     ],
     targets: [
         .target(

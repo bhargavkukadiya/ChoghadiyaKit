@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.1.0] - 2026-10-25
+
 ### Added
 - **Offline Solar Engine (`NOAASunTimesCalculator`):** Pure Swift NOAA solar position algorithm computing sunrise, sunset, and next sunrise from coordinates with no network access, including a synchronous `sunTimes(latitude:longitude:timeZone:date:)`. Applies the same time zone, date line, polar, and coordinate checks as `APISunTimesFetcher`. Sunrise and sunset are located by searching for the actual horizon crossing, so the last sunrise before the midnight sun (for example 00:51 in Tromsø on 2026-05-18) and a sunset after midnight are still found, and a next day with no sunset of its own does not block the current schedule.
 - **Rahu Kaal, Yamagandam & Gulika Kaal (`VedicPeriodCalculator`):** New `VedicPeriod` and `VedicPeriodType` models, plus `ChoghadiyaSchedule.vedicPeriods` and `vedicPeriod(_:)`, computed from the schedule's sunrise and sunset and the Vedic weekday.
