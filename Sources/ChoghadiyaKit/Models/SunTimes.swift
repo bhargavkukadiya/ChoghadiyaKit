@@ -48,3 +48,13 @@ public struct SunTimes: Equatable, Hashable, Codable, Sendable {
         self.timeZone = timeZone
     }
 }
+
+extension SunTimes {
+    /// Vedic weekday (Vāra) index, determined strictly by sunrise in the location's time zone
+    /// (Sunday = 0, Monday = 1, ... Saturday = 6).
+    var vedicWeekdayIndex: Int {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return max(0, min(6, calendar.component(.weekday, from: sunrise) - 1))
+    }
+}

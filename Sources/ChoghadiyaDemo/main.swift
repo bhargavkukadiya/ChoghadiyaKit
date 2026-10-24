@@ -24,6 +24,13 @@ enum InputMode {
     case help
 }
 
+/// Parsed command line: what to compute and which solar engine computes it.
+struct Invocation {
+    let mode: InputMode
+    /// `true` to compute solar times offline with the NOAA algorithm instead of the Sunrise-Sunset API.
+    let offline: Bool
+}
+
 enum CLIError: LocalizedError {
     case argumentError(String)
 
@@ -40,12 +47,13 @@ enum CLIError: LocalizedError {
 @main
 struct ChoghadiyaDemo {
     static func main() async {
-        let input: InputMode
+        let invocation: Invocation
         do {
-            input = try parseArguments()
+            invocation = try parseInvocation()
         } catch {
             exitWithDiagnostic(error.localizedDescription, code: 2)
         }
+        let input = invocation.mode
 
         if case .help = input {
             printHelp()
@@ -56,7 +64,8 @@ struct ChoghadiyaDemo {
         print("   🕉️  Vedic Choghadiya Schedule Demo")
         print("=======================================================")
 
-        let manager = ChoghadiyaManager()
+        let fetcher: SunTimesFetching = invocation.offline ? NOAASunTimesCalculator() : APISunTimesFetcher()
+        let manager = ChoghadiyaManager(fetcher: fetcher)
 
         do {
             let schedule: ChoghadiyaSchedule
@@ -128,7 +137,11 @@ struct ChoghadiyaDemo {
             if let sunrise = schedule.sunrise, let sunset = schedule.sunset {
                 print("🌅 Sunrise:     \(timeFormatter.string(from: sunrise))")
                 print("🌇 Sunset:      \(timeFormatter.string(from: sunset))\n")
-                print("Solar data: https://sunrise-sunset.org\n")
+                if invocation.offline {
+                    print("Solar data: computed offline (NOAA solar algorithm)\n")
+                } else {
+                    print("Solar data: https://sunrise-sunset.org\n")
+                }
             } else {
                 print("")
             }
@@ -141,6 +154,9 @@ struct ChoghadiyaDemo {
                 print("   \(badge) \(active.type.rawValue.uppercased()) (\(active.type.auspiciousness.rawValue))")
                 print("   Ruling Graha: \(active.type.rulingPlanet)")
                 print("   Window:       \(timeFormatter.string(from: active.startTime)) – \(timeFormatter.string(from: active.endTime))")
+                if let period = schedule.vedicPeriods.first(where: { $0.isActive() }) {
+                    print("   ⛔ Also in \(period.type.rawValue) until \(timeFormatter.string(from: period.endTime))")
+                }
                 print("-------------------------------------------------------\n")
             }
 
@@ -154,6 +170,16 @@ struct ChoghadiyaDemo {
                 let name = slot.type.rawValue.padding(toLength: 7, withPad: " ", startingAt: 0)
                 let quality = slot.type.auspiciousness.rawValue.padding(toLength: 17, withPad: " ", startingAt: 0)
                 print(" \(index + 1). [\(start) - \(end)]  \(badge) \(name)  \(quality) (\(slot.type.rulingPlanet))")
+            }
+            print("")
+
+            // Print Rahu Kaal, Yamagandam & Gulika Kaal
+            print("⛔ RAHU KAAL, YAMAGANDAM & GULIKA KAAL (Daytime):")
+            print("-------------------------------------------------------")
+            for period in schedule.vedicPeriods {
+                let start = timeFormatter.string(from: period.startTime)
+                let end = timeFormatter.string(from: period.endTime)
+                print("    [\(start) - \(end)]  \(period.type.rawValue)")
             }
             print("")
 
@@ -179,6 +205,15 @@ struct ChoghadiyaDemo {
     }
 
     // MARK: - Argument Parsing
+
+    static func parseInvocation(_ arguments: [String] = Array(CommandLine.arguments.dropFirst())) throws -> Invocation {
+        let offlineFlagCount = arguments.filter { $0 == "--offline" }.count
+        guard offlineFlagCount <= 1 else {
+            throw CLIError.argumentError("Duplicate option '--offline'.")
+        }
+        let mode = try parseArguments(arguments.filter { $0 != "--offline" })
+        return Invocation(mode: mode, offline: offlineFlagCount == 1)
+    }
 
     static func parseArguments(_ arguments: [String] = Array(CommandLine.arguments.dropFirst())) throws -> InputMode {
         var args = arguments
@@ -387,10 +422,10 @@ struct ChoghadiyaDemo {
         OVERVIEW: Astronomical Vedic Choghadiya schedule calculator.
 
         USAGE:
-          swift run ChoghadiyaDemo [<location>] [--date <YYYY-MM-DD>]
-          swift run ChoghadiyaDemo <latitude> <longitude> [<timezone>] [--date <YYYY-MM-DD>]
-          swift run ChoghadiyaDemo <latitude>,<longitude> [<timezone>] [--date <YYYY-MM-DD>]
-          swift run ChoghadiyaDemo --lat <latitude> --lon <longitude> [--tz <timezone>] [--date <YYYY-MM-DD>]
+          swift run ChoghadiyaDemo [<location>] [--date <YYYY-MM-DD>] [--offline]
+          swift run ChoghadiyaDemo <latitude> <longitude> [<timezone>] [--date <YYYY-MM-DD>] [--offline]
+          swift run ChoghadiyaDemo <latitude>,<longitude> [<timezone>] [--date <YYYY-MM-DD>] [--offline]
+          swift run ChoghadiyaDemo --lat <latitude> --lon <longitude> [--tz <timezone>] [--date <YYYY-MM-DD>] [--offline]
 
         ARGUMENTS:
           <location>           City or location name (default: "Ahmedabad, India")
@@ -403,6 +438,8 @@ struct ChoghadiyaDemo {
           --lat <latitude>     Geographic latitude decimal
           --lon <longitude>    Geographic longitude decimal
           --tz <timezone>      IANA time zone of the coordinates (default: looked up from the coordinates)
+          --offline            Compute sunrise and sunset offline with the NOAA solar algorithm
+                               (location names and time zone lookup still need the network)
           -h, --help           Show this help information
 
         EXAMPLES:
@@ -413,6 +450,7 @@ struct ChoghadiyaDemo {
           swift run ChoghadiyaDemo 21.1702 72.8311 Asia/Kolkata --date 2026-09-04
           swift run ChoghadiyaDemo 21.1702,72.8311 Asia/Kolkata
           swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
+          swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata --offline
         """)
     }
 

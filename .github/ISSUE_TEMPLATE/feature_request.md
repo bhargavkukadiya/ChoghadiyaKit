@@ -11,7 +11,7 @@ assignees: ''
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
 **Describe the Solution You'd Like**
-A clear and concise description of what you want to happen (e.g. Offline NOAA Solar Calculator, Rahu Kaal calculations).
+A clear and concise description of what you want to happen (e.g. Hora or Abhijit Muhurat calculations).
 
 **Describe Alternatives You've Considered**
 A clear and concise description of any alternative solutions or features you've considered.

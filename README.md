@@ -17,13 +17,13 @@
 
 ## Overview
 
-**ChoghadiyaKit** is a lightweight, zero-dependency, production-grade Swift Package designed to compute Vedic **Choghadiya** (auspicious and inauspicious planetary hours) with astronomical precision.
+**ChoghadiyaKit** is a lightweight, zero-dependency, production-grade Swift Package designed to compute Vedic **Choghadiya** (auspicious and inauspicious planetary hours), plus **Rahu Kaal**, **Yamagandam**, and **Gulika Kaal**, with astronomical precision, online or fully offline.
 
 Whether you are developing an iOS companion app, macOS menu bar utility, watchOS complication, or WidgetKit timeline, ChoghadiyaKit provides a clean, protocol-oriented API with full `Sendable` concurrency guarantees and first-class SwiftUI bindings.
 
 ### Solar-data attribution
 
-The default `APISunTimesFetcher` retrieves solar times from [Sunrise-Sunset.org](https://sunrise-sunset.org). The API is free for reasonable request volumes and requires a visible link to Sunrise-Sunset.org wherever its data is displayed. Apps using the default fetcher should show that attribution in their UI; if you provide a custom `SunTimesFetching` implementation, follow the data provider's attribution terms.
+The default `APISunTimesFetcher` retrieves solar times from [Sunrise-Sunset.org](https://sunrise-sunset.org). The API is free for reasonable request volumes and requires a visible link to Sunrise-Sunset.org wherever its data is displayed. Apps using the default fetcher should show that attribution in their UI; if you provide a custom `SunTimesFetching` implementation, follow the data provider's attribution terms. The offline `NOAASunTimesCalculator` computes solar times on the device and needs no attribution.
 
 ---
 
@@ -38,7 +38,9 @@ The default `APISunTimesFetcher` retrieves solar times from [Sunrise-Sunset.org]
   - [2. Schedule by Coordinates (Widgets & CoreLocation)](#2-schedule-by-coordinates-widgets--corelocation)
   - [3. Schedule for a Specific Calendar Date](#3-schedule-for-a-specific-calendar-date)
   - [4. Querying Active, Upcoming Slots & Solar Times](#4-querying-active-upcoming-slots--solar-times)
-  - [5. Complete SwiftUI Integration](#5-complete-swiftui-integration)
+  - [5. Rahu Kaal, Yamagandam & Gulika Kaal](#5-rahu-kaal-yamagandam--gulika-kaal)
+  - [6. Offline Solar Engine](#6-offline-solar-engine)
+  - [7. Complete SwiftUI Integration](#7-complete-swiftui-integration)
 - [Architecture & Testing](#architecture--testing)
   - [Dependency Injection & Mocking](#dependency-injection--mocking)
   - [Verifying Strict Concurrency](#verifying-strict-concurrency)
@@ -69,11 +71,13 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
 ## Key Features
 
 * ☀️ **Astronomical Solar Derivation:** Computes exact slot boundaries from local sunrise, sunset, and next sunrise.
+* 📴 **Offline Solar Engine:** `NOAASunTimesCalculator` implements the NOAA solar position algorithm in pure Swift for zero-network sunrise and sunset from coordinates.
+* ⛔ **Rahu Kaal, Yamagandam & Gulika Kaal:** The daily inauspicious periods, computed from the same sunrise and sunset as the schedule.
 * 🛡️ **Swift 6 Strict Concurrency:** Every model, protocol, and facade strictly conforms to `Sendable`. Zero compiler warnings with `-strict-concurrency=complete`.
 * 📱 **Native SwiftUI Integration:** `ChoghadiyaSlot` conforms to `Identifiable`, `Hashable`, and `Codable` for seamless use in `ForEach`, `Table`, and `TimelineView`.
 * ⚡ **Zero External Dependencies:** Built entirely with standard Apple frameworks (`Foundation`, `CoreLocation`).
 * 🧩 **Clean Architecture:** Fully decoupled protocols (`ChoghadiyaCalculating`, `SunTimesFetching`) allowing easy mock injection for unit and UI testing.
-* 🧪 **Tested:** 46 unit tests covering all 7 weekdays, slot continuity, coordinate validation, solar day normalization, time zone and date line validation, polar day/night, CLI parsing, and boundary edge cases.
+* 🧪 **Tested:** 66 unit tests covering all 7 weekdays, Rahu Kaal / Yamagandam / Gulika Kaal tables, offline solar accuracy against Sunrise-Sunset.org and a year-long horizon scan through polar transitions, slot continuity, coordinate validation, solar day normalization, time zone and date line validation, polar day/night, CLI parsing, and boundary edge cases.
 
 ---
 
@@ -102,6 +106,8 @@ Each division is ruled by a celestial body (*Graha*) in a cyclic sequence based 
    https://github.com/bhargavkukadiya/ChoghadiyaKit.git
    ```
 4. Set the dependency rule to **Up to Next Major Version** starting at `1.0.2`.
+
+> **Unreleased APIs:** The offline solar engine (`NOAASunTimesCalculator`), Rahu Kaal / Yamagandam / Gulika Kaal (`VedicPeriodCalculator`, `ChoghadiyaSchedule.vedicPeriods`), and the `timeZoneUnavailable`, `timeZoneMismatch`, and `polarDayOrNight` errors are on `main` but not yet in a tagged release; `1.0.2` does not include them. To use them before the next release, depend on the `main` branch (`.package(url: "https://github.com/bhargavkukadiya/ChoghadiyaKit.git", branch: "main")`).
 5. Click **Add Package**.
 
 #### Via `Package.swift`
@@ -152,6 +158,9 @@ swift run ChoghadiyaDemo --lat 40.7128 --lon -74.0060 --tz America/New_York
 # Query specific dates (past, present, or future):
 swift run ChoghadiyaDemo "Ahmedabad, India" --date 2026-10-24
 swift run ChoghadiyaDemo 21.1702 72.8311 --date 2026-09-04
+
+# Compute sunrise and sunset offline with the NOAA solar algorithm:
+swift run ChoghadiyaDemo 23.0225 72.5714 Asia/Kolkata --offline
 
 # View full CLI help and available options:
 swift run ChoghadiyaDemo --help
@@ -299,7 +308,66 @@ print("Currently in daytime Choghadiya: \(isDay)")
 
 ---
 
-### 5. Complete SwiftUI Integration
+### 5. Rahu Kaal, Yamagandam & Gulika Kaal
+
+Every schedule also exposes the day's three inauspicious periods. Daylight (sunrise to sunset) is divided into eight equal parts, and each period occupies the part fixed for the Vedic weekday:
+
+| Weekday | Rahu Kaal | Yamagandam | Gulika Kaal |
+| :--- | :---: | :---: | :---: |
+| Sunday | 8th | 5th | 7th |
+| Monday | 2nd | 4th | 6th |
+| Tuesday | 7th | 3rd | 5th |
+| Wednesday | 5th | 2nd | 4th |
+| Thursday | 6th | 1st | 3rd |
+| Friday | 4th | 7th | 2nd |
+| Saturday | 3rd | 6th | 1st |
+
+```swift
+// All three, in chronological order
+for period in schedule.vedicPeriods {
+    print("\(period.type.rawValue): \(period.startTime) – \(period.endTime)")
+}
+
+// A specific period
+if let rahuKaal = schedule.vedicPeriod(.rahuKaal), rahuKaal.isActive() {
+    print("Rahu Kaal is in progress until \(rahuKaal.endTime)")
+}
+
+// Or directly from solar times, without a schedule
+let periods = VedicPeriodCalculator().calculatePeriods(for: sunTimes)
+```
+
+These are the daytime periods published in most panchangs; night-time variants are not computed.
+
+---
+
+### 6. Offline Solar Engine
+
+`NOAASunTimesCalculator` computes sunrise and sunset on the device with the NOAA solar position algorithm, so schedules for coordinates need no network access. That makes it a good fit for widgets, complications, and apps without connectivity. Inject it into the manager, or call it synchronously:
+
+```swift
+let offlineManager = ChoghadiyaManager(fetcher: NOAASunTimesCalculator())
+let schedule = try await offlineManager.getSchedule(
+    latitude: 23.0225,
+    longitude: 72.5714,
+    timeZone: TimeZone(identifier: "Asia/Kolkata")!
+)
+
+// Synchronous, for WidgetKit timelines and other non-async contexts
+let sunTimes = try NOAASunTimesCalculator().sunTimes(
+    latitude: 23.0225,
+    longitude: 72.5714,
+    timeZone: TimeZone(identifier: "Asia/Kolkata")!,
+    date: Date()
+)
+let offlineSchedule = ChoghadiyaCalculator().calculateSchedule(for: Date(), sunTimes: sunTimes)
+```
+
+Results agree with Sunrise-Sunset.org to within about 30 seconds at mid-latitudes; near the polar circles, where the sun grazes the horizon, differences of a few minutes are normal. It applies the same checks as the API fetcher: `timeZoneMismatch`, `polarDayOrNight`, and `invalidCoordinates`. Looking up a location *name* (`getSchedule(for:)`) still geocodes over the network.
+
+---
+
+### 7. Complete SwiftUI Integration
 
 Because `ChoghadiyaSlot` conforms to `Identifiable`, you can pass slots directly to SwiftUI lists and grids without manual `id:` keypaths:
 
@@ -409,15 +477,21 @@ Sources/ChoghadiyaKit/
 │   ├── ChoghadiyaType.swift       # 7 Planetary rulers, graha deities, and qualities
 │   ├── ChoghadiyaSlot.swift       # Identifiable slot representation
 │   ├── SunTimes.swift             # Astronomical solar container with boundary validation
+│   ├── VedicPeriod.swift          # Rahu Kaal, Yamagandam & Gulika Kaal types and intervals
 │   └── ChoghadiyaSchedule.swift   # Schedule representation with query methods
 ├── Protocols/
 │   ├── ChoghadiyaCalculating.swift # Sendable protocol for schedule calculations
 │   └── SunTimesFetching.swift     # Sendable protocol for astronomical retrieval
 ├── Calculator/
-│   └── ChoghadiyaCalculator.swift # O(1) static indexing & sub-millisecond boundary clamping
+│   ├── ChoghadiyaCalculator.swift # O(1) static indexing & sub-millisecond boundary clamping
+│   ├── VedicPeriodCalculator.swift # Weekday tables for Rahu Kaal, Yamagandam & Gulika Kaal
+│   └── NOAASolarPosition.swift    # NOAA solar position equations (declination, equation of time)
 ├── Services/
 │   ├── ChoghadiyaError.swift      # Domain errors conforming to LocalizedError & Sendable
-│   └── APISunTimesFetcher.swift   # URLSession-backed client with tzid timezone escaping
+│   ├── APISunTimesFetcher.swift   # URLSession-backed client with tzid timezone escaping
+│   ├── NOAASunTimesCalculator.swift # Offline solar engine conforming to SunTimesFetching
+│   ├── SolarLocationValidation.swift # Coordinate, time zone & date line checks shared by both engines
+│   └── Geocoding.swift            # CLGeocoder address lookup shared by both engines
 └── Facade/
     └── ChoghadiyaManager.swift    # High-level coordinator adhering to Dependency Inversion
 
@@ -430,26 +504,32 @@ Tests/ChoghadiyaKitTests/
 ├── ChoghadiyaScheduleTests.swift   # Active/next slot queries, Codable & Identifiable
 ├── ChoghadiyaManagerTests.swift    # Mock injection, DIP & coordinate tests
 ├── ChoghadiyaTypeTests.swift       # Auspiciousness qualities & ruling Grahas
+├── NOAASunTimesCalculatorTests.swift # Offline accuracy vs Sunrise-Sunset.org, polar & time zone checks
+├── VedicPeriodCalculatorTests.swift # Rahu Kaal, Yamagandam & Gulika Kaal weekday tables
 └── CLIArgumentTests.swift          # CLI argument parsing, option flags & coordinate formats
 ```
 
 ### Dependency Injection & Mocking
 
-`ChoghadiyaManager` accepts protocols for both astronomical retrieval and schedule calculations, making unit testing completely deterministic with zero network activity:
+`ChoghadiyaManager` accepts protocols for both astronomical retrieval and schedule calculations, so tests can inject fixed solar times: the same inputs always give the same schedule, with zero network activity:
 
 ```swift
-final class MockSunTimesFetcher: SunTimesFetching, @unchecked Sendable {
-    func fetchSunTimes(for location: String, date: Date) async throws -> SunTimes {
+/// Fixed solar times: sunrise at 06:00 and sunset at 18:00 on the requested day in the requested time zone.
+final class MockSunTimesFetcher: SunTimesFetching {
+    func fetchSunTimes(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date) async throws -> SunTimes {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: date)!
         return SunTimes(
-            sunrise: Date(),
-            sunset: Date().addingTimeInterval(43200),
-            nextSunrise: Date().addingTimeInterval(86400),
-            timeZone: .current
+            sunrise: calendar.date(bySettingHour: 6, minute: 0, second: 0, of: date)!,
+            sunset: calendar.date(bySettingHour: 18, minute: 0, second: 0, of: date)!,
+            nextSunrise: calendar.date(bySettingHour: 6, minute: 0, second: 0, of: nextDay)!,
+            timeZone: timeZone
         )
     }
 
-    func fetchSunTimes(latitude: Double, longitude: Double, timeZone: TimeZone, date: Date) async throws -> SunTimes {
-        return try await fetchSunTimes(for: "", date: date)
+    func fetchSunTimes(for location: String, date: Date) async throws -> SunTimes {
+        try await fetchSunTimes(latitude: 23.0225, longitude: 72.5714, timeZone: TimeZone(identifier: "Asia/Kolkata")!, date: date)
     }
 }
 
@@ -469,8 +549,8 @@ swift test -Xswiftc -strict-concurrency=complete
 
 ## Roadmap
 
-- [ ] **Offline Solar Engine:** Add a pure Swift implementation of the NOAA Astronomical Solar Algorithm for 100% offline, zero-network calculation.
-- [ ] **Rahu Kaal, Yamagandam & Gulika Kaal:** Add complementary Vedic period calculators.
+- [x] **Offline Solar Engine:** Pure Swift implementation of the NOAA solar position algorithm for zero-network calculation from coordinates (`NOAASunTimesCalculator`).
+- [x] **Rahu Kaal, Yamagandam & Gulika Kaal:** Complementary Vedic period calculators (`VedicPeriodCalculator`, `ChoghadiyaSchedule.vedicPeriods`).
 - [ ] **Abhijit Muhurat:** Calculation of the midday auspicious 8th Muhurat.
 - [ ] **DocC Documentation:** Hosted interactive documentation on GitHub Pages.
 

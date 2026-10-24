@@ -155,6 +155,7 @@ jobs:
           ./ChoghadiyaDemo "London, UK"
           ./ChoghadiyaDemo 21.1702 72.8311
           ./ChoghadiyaDemo 21.1702 72.8311 --date 2026-10-24
+          ./ChoghadiyaDemo 21.1702 72.8311 Asia/Kolkata --offline
           ./ChoghadiyaDemo --help
 
         To install system-wide:

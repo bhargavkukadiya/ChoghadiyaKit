@@ -13,7 +13,7 @@ All contributors are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT
 ## How Can I Contribute?
 
 - **Reporting Bugs:** If you discover a calculation discrepancy, timezone edge case, or crash, please open an issue with full reproduction steps.
-- **Suggesting Features:** Ideas for expanding the astronomical calculations (e.g. offline solar calculation engine, Rahu Kaal, Hora, Yamagandam) are warmly welcomed.
+- **Suggesting Features:** Ideas for expanding the astronomical calculations (e.g. Hora, Abhijit Muhurat, night-time Rahu Kaal) are warmly welcomed.
 - **Submitting Pull Requests:** We appreciate bug fixes, performance improvements, and documentation enhancements.
 
 ---

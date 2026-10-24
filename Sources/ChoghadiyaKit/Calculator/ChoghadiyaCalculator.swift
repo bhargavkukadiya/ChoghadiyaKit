@@ -39,12 +39,7 @@ public final class ChoghadiyaCalculator: ChoghadiyaCalculating, Sendable {
             return ChoghadiyaSchedule(daySlots: [], nightSlots: [], timeZone: sunTimes.timeZone)
         }
 
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = sunTimes.timeZone
-
-        // Vedic day (Vāra) is determined strictly by sunrise
-        let rawWeekday = calendar.component(.weekday, from: sunTimes.sunrise) - 1
-        let weekday = max(0, min(6, rawWeekday))
+        let weekday = sunTimes.vedicWeekdayIndex
 
         let dayTotalDuration = max(0, sunTimes.sunset.timeIntervalSince(sunTimes.sunrise))
         let nightTotalDuration = max(0, sunTimes.nextSunrise.timeIntervalSince(sunTimes.sunset))

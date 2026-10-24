@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Offline Solar Engine (`NOAASunTimesCalculator`):** Pure Swift NOAA solar position algorithm computing sunrise, sunset, and next sunrise from coordinates with no network access, including a synchronous `sunTimes(latitude:longitude:timeZone:date:)`. Applies the same time zone, date line, polar, and coordinate checks as `APISunTimesFetcher`. Sunrise and sunset are located by searching for the actual horizon crossing, so the last sunrise before the midnight sun (for example 00:51 in Tromsø on 2026-05-18) and a sunset after midnight are still found, and a next day with no sunset of its own does not block the current schedule.
+- **Rahu Kaal, Yamagandam & Gulika Kaal (`VedicPeriodCalculator`):** New `VedicPeriod` and `VedicPeriodType` models, plus `ChoghadiyaSchedule.vedicPeriods` and `vedicPeriod(_:)`, computed from the schedule's sunrise and sunset and the Vedic weekday.
+- **CLI `--offline` Option & Period Listing:** Compute solar times offline, and list the day's Rahu Kaal, Yamagandam, and Gulika Kaal.
 - **New `ChoghadiyaError` cases:** `timeZoneUnavailable`, `timeZoneMismatch`, and `polarDayOrNight`. Exhaustive `switch` statements over `ChoghadiyaError` need to handle them.
 - **CLI Time Zone Lookup:** Coordinates given without a time zone now use the coordinates' own time zone (looked up by reverse geocoding) instead of the system time zone.
 - **CLI Attribution:** Show the Sunrise-Sunset.org data link in the CLI output.

@@ -74,4 +74,19 @@ public struct ChoghadiyaSchedule: Equatable, Hashable, Codable, Sendable {
         guard let firstDaySlot = daySlots.first, let lastDaySlot = daySlots.last else { return false }
         return date >= firstDaySlot.startTime && date < lastDaySlot.endTime
     }
+
+    // MARK: - Rahu Kaal, Yamagandam & Gulika Kaal
+
+    /// The day's Rahu Kaal, Yamagandam, and Gulika Kaal in chronological order, computed from this
+    /// schedule's sunrise and sunset; empty if the schedule has no slots.
+    public var vedicPeriods: [VedicPeriod] {
+        guard let sunrise, let sunset, let nextSunrise else { return [] }
+        let sunTimes = SunTimes(sunrise: sunrise, sunset: sunset, nextSunrise: nextSunrise, timeZone: timeZone)
+        return VedicPeriodCalculator().calculatePeriods(for: sunTimes)
+    }
+
+    /// The day's period of the given type (e.g. `.rahuKaal`), or `nil` if the schedule has no slots.
+    public func vedicPeriod(_ type: VedicPeriodType) -> VedicPeriod? {
+        vedicPeriods.first { $0.type == type }
+    }
 }

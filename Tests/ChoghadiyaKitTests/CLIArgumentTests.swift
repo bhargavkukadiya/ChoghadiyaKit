@@ -68,6 +68,25 @@ final class CLIArgumentTests: XCTestCase {
         }
     }
 
+    func testOfflineFlagSelectsOfflineEngine() throws {
+        let offline = try ChoghadiyaDemo.parseInvocation(["23", "72", "Asia/Kolkata", "--offline", "--date", "2026-10-24"])
+        XCTAssertTrue(offline.offline)
+        guard case .coordinates(let latitude, _, let zone, let date) = offline.mode else {
+            return XCTFail("Expected coordinate input")
+        }
+        XCTAssertEqual(latitude, 23)
+        XCTAssertEqual(zone?.identifier, "Asia/Kolkata")
+        XCTAssertEqual(date?.day, 24)
+
+        XCTAssertFalse(try ChoghadiyaDemo.parseInvocation(["London"]).offline)
+        guard case .address(let address, _) = try ChoghadiyaDemo.parseInvocation(["--offline", "London", "UK"]).mode else {
+            return XCTFail("Expected address input")
+        }
+        XCTAssertEqual(address, "London UK")
+
+        XCTAssertThrowsError(try ChoghadiyaDemo.parseInvocation(["London", "--offline", "--offline"]))
+    }
+
     func testAddressAndDefaultModes() throws {
         for arguments in [[], ["London", "UK"]] {
             guard case .address(let address, _) = try ChoghadiyaDemo.parseArguments(arguments) else {

@@ -382,7 +382,7 @@ final class APISunTimesFetcherTests: XCTestCase {
             let zone = try XCTUnwrap(TimeZone(identifier: testCase.zone))
             let label = "\(testCase.zone) at \(testCase.latitude), \(testCase.longitude)"
             let validate = {
-                try APISunTimesFetcher.validateTimeZone(zone, latitude: testCase.latitude, longitude: testCase.longitude, sunrise: sunrise)
+                try SolarLocationValidation.validateTimeZone(zone, latitude: testCase.latitude, longitude: testCase.longitude, sunrise: sunrise)
             }
             if testCase.accepted {
                 XCTAssertNoThrow(try validate(), label)
@@ -434,7 +434,7 @@ final class APISunTimesFetcherTests: XCTestCase {
             throw URLError(.cancelled)
         }
         let fetcher = APISunTimesFetcher(session: session) { _ in
-            APISunTimesFetcher.GeocodedLocation(latitude: 23.0225, longitude: 72.5714, timeZone: nil)
+            GeocodedLocation(latitude: 23.0225, longitude: 72.5714, timeZone: nil)
         }
         do {
             _ = try await fetcher.fetchSunTimes(for: "Ahmedabad, India", date: testDate)
@@ -467,7 +467,7 @@ final class APISunTimesFetcherTests: XCTestCase {
             return (response, Data(json.utf8))
         }
         let fetcher = APISunTimesFetcher(session: session) { _ in
-            APISunTimesFetcher.GeocodedLocation(latitude: 23.0225, longitude: 72.5714, timeZone: TimeZone(identifier: "Asia/Kolkata"))
+            GeocodedLocation(latitude: 23.0225, longitude: 72.5714, timeZone: TimeZone(identifier: "Asia/Kolkata"))
         }
 
         let sunTimes = try await fetcher.fetchSunTimes(for: "Ahmedabad, India", date: testDate)

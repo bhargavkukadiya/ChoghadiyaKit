@@ -18,7 +18,7 @@ The security of **ChoghadiyaKit** and applications that depend on it is taken se
 If you believe you have found a security vulnerability:
 
 1. **Do not disclose the issue publicly** (e.g. do not open a public GitHub issue).
-2. Please report the vulnerability privately via **GitHub Security Advisories** on the repository or email the maintainer at `30554745+bhargavkukadiya@users.noreply.github.com`.
+2. Report it privately through GitHub's private vulnerability reporting: [open a draft security advisory](https://github.com/bhargavkukadiya/ChoghadiyaKit/security/advisories/new) (also available from the repository's **Security** tab → **Report a vulnerability**).
 3. Include detailed reproduction steps, sample Swift code, and the impact of the issue.
 
 ### Response Timeline
